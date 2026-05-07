@@ -1,0 +1,147 @@
+# CPU scout config for Cer-Eval only.
+# Derived from configs/paper_experiment.yaml with:
+#   - separate out_root
+#   - 3-seed main schedule
+#   - identical Cer-Eval scope (accuracy-only, collapsed-by-target)
+
+paths:
+  repo_root: .
+  data_root: ./data
+  out_root: ./results/paper_experiment_cereval_3seed_cpu
+
+datasets:
+  sst2:
+    N: 68221
+    classes: 2
+  mmlu:
+    N: 115700
+    classes: 4
+  agnews:
+    N: 127600
+    classes: 4
+
+pairs_weak:
+  - { surrogate: llama2_7b, target: Mixtral_8x7b }
+  - { surrogate: llama2_7b, target: deepseek_67b }
+  - { surrogate: llama2_7b, target: llama3_70b }
+  - { surrogate: llama2_7b, target: qwen25_72b }
+  - { surrogate: llama3_8b, target: Mixtral_8x7b }
+  - { surrogate: llama3_8b, target: deepseek_67b }
+  - { surrogate: llama3_8b, target: llama3_70b }
+  - { surrogate: llama3_8b, target: qwen25_72b }
+
+pairs_strong:
+  - { surrogate: deepseek_67b, target: llama3_70b }
+  - { surrogate: qwen25_72b,  target: llama3_70b }
+
+# v0502: paper_pairs required by config schema (A2 commit 690806b).
+# Cer-Eval config doesn't filter by paper_pairs but the schema enforces presence.
+paper_pairs:
+  - { surrogate: llama3_8b, target: llama3_70b }
+  - { surrogate: llama2_7b, target: llama3_70b }
+  - { surrogate: llama3_8b, target: qwen25_72b }
+  - { surrogate: llama3_8b, target: Mixtral_8x7b }
+
+losses: [accuracy, cross_entropy]
+
+seeds_main: [42, 43, 44]
+seeds_beta_sweep:  [42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+                    52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+                    62, 63, 64, 65, 66]
+seeds_ce_sweep:    [42, 43, 44, 45, 46]
+seeds_smoke:       [42, 43, 44]
+
+protocol:
+  epsilon: 0.05
+  alpha: 0.05
+  alpha_1: 0.025
+  alpha_2: 0.025
+  K: 1
+  theta: 0.5
+  c_betting: 0.5
+  c_fixed: 0.5
+  cs_grid_size: 2000
+  fixed_horizon: false
+  monitor_to_T_max: true
+
+methods:
+  M1:
+    uniform_acquisition: false
+    adaptive_bounds: true
+    surrogate_type_accuracy: remark2_strategy4
+    surrogate_type_ce: null
+    beta_min_accuracy: 0.4
+    beta_min_ce: null
+    skip_cereval: true
+  M2:
+    uniform_acquisition: false
+    adaptive_bounds: false
+    surrogate_type_accuracy: remark2_strategy4
+    surrogate_type_ce: null
+    beta_min_accuracy: 0.4
+    beta_min_ce: null
+    skip_cereval: true
+  M3:
+    uniform_acquisition: true
+    adaptive_bounds: true
+    surrogate_type_accuracy: none
+    surrogate_type_ce: none
+    beta_min_accuracy: 0.4
+    beta_min_ce: 0.4
+    skip_cereval: true
+  M4:
+    uniform_acquisition: true
+    adaptive_bounds: false
+    surrogate_type_accuracy: none
+    surrogate_type_ce: none
+    beta_min_accuracy: 0.4
+    beta_min_ce: 0.4
+    skip_cereval: true
+  M5:
+    m_init: 100
+
+cereval_scope:
+  losses: [accuracy]
+  collapse_by_target: true
+
+ce_sweep:
+  strategies: [remark1_strategy1, remark1_strategy2, remark1_strategy3]
+  beta_mins:  [0.1, 0.2, 0.4, 0.6, 0.8]
+  cells_weak:
+    - { dataset: sst2,   surrogate: llama2_7b,  target: Mixtral_8x7b }
+    - { dataset: mmlu,   surrogate: llama2_7b,  target: qwen25_72b }
+    - { dataset: agnews, surrogate: llama3_8b,  target: deepseek_67b }
+    - { dataset: sst2,   surrogate: llama3_8b,  target: llama3_70b }
+  cells_strong:
+    - { dataset: mmlu,   surrogate: deepseek_67b, target: llama3_70b }
+    - { dataset: agnews, surrogate: qwen25_72b,   target: llama3_70b }
+  selection:
+    min_stop_rate: 0.8
+    required_miscoverages: 0
+    tie_break_pct: 0.05
+
+beta_sweep:
+  beta_mins: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+  pairs_representative:
+    - { dataset: sst2,   surrogate: llama3_8b,    target: qwen25_72b }
+    - { dataset: sst2,   surrogate: qwen25_72b,   target: llama3_70b }
+    - { dataset: mmlu,   surrogate: llama2_7b,    target: llama3_70b }
+    - { dataset: mmlu,   surrogate: deepseek_67b, target: llama3_70b }
+    - { dataset: agnews, surrogate: llama3_8b,    target: deepseek_67b }
+    - { dataset: agnews, surrogate: qwen25_72b,   target: llama3_70b }
+
+smoke:
+  dataset: sst2
+  surrogate: llama2_7b
+  target: Mixtral_8x7b
+  loss: accuracy
+  methods: [M1, M2, M3, M4]
+
+disk_audit:
+  min_bytes_free: 107374182400
+  min_inodes_free: 2000
+  probe_path: results/paper_experiment_cereval_3seed_cpu/_probe.npz
+
+ce_nll_filter:
+  enabled: true
+  threshold: 3.0

@@ -1,0 +1,283 @@
+# Paper-experiment master config. No magic numbers in code — every parameter
+# below is read by scripts/run_paper_experiment.py.
+#
+# Paths below are relative to the repo root.
+
+paths:
+  repo_root: .
+  data_root: ./data
+  out_root: ./results/paper_experiment
+
+datasets:
+  sst2:
+    N: 68221
+    classes: 2
+  mmlu:
+    N: 115700
+    classes: 4
+  agnews:
+    N: 127600
+    classes: 4
+
+# 10 pairs per dataset. 8 weak + 2 strong. Dataset symmetry assumed —
+# harness multiplies datasets × pairs.
+pairs_weak:
+  - { surrogate: llama2_7b, target: Mixtral_8x7b }
+  - { surrogate: llama2_7b, target: deepseek_67b }
+  - { surrogate: llama2_7b, target: llama3_70b }
+  - { surrogate: llama2_7b, target: qwen25_72b }
+  - { surrogate: llama3_8b, target: Mixtral_8x7b }
+  - { surrogate: llama3_8b, target: deepseek_67b }
+  - { surrogate: llama3_8b, target: llama3_70b }
+  - { surrogate: llama3_8b, target: qwen25_72b }
+
+pairs_strong:
+  - { surrogate: deepseek_67b, target: llama3_70b }
+  - { surrogate: qwen25_72b,  target: llama3_70b }
+
+# v0504: 6-pair filter for paper_experiments_v0504 figures and tables.
+# Extends the v0502 4-pair set with the two deepseek_67b-target pairs
+# (llama2_7b -> deepseek_67b, llama3_8b -> deepseek_67b) so that all four
+# target families (Llama, Qwen, Mistral, DeepSeek) are covered. Resolves
+# the AG-News rq6 sample-bias artefact in v0502 (sub-sample averaging
+# excluded the highest-cond_var(uniform) target, deepseek_67b).
+paper_pairs:
+  - { surrogate: llama3_8b, target: llama3_70b }
+  - { surrogate: llama2_7b, target: llama3_70b }
+  - { surrogate: llama3_8b, target: qwen25_72b }
+  - { surrogate: llama3_8b, target: Mixtral_8x7b }
+  - { surrogate: llama2_7b, target: deepseek_67b }
+  - { surrogate: llama3_8b, target: deepseek_67b }
+
+losses: [accuracy, cross_entropy]
+
+seeds_main:        [42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+                    52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+                    62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
+                    72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+                    82, 83, 84, 85, 86, 87, 88, 89, 90, 91]
+seeds_beta_sweep:  [42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+                    52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+                    62, 63, 64, 65, 66]
+seeds_ce_sweep:    [42, 43, 44, 45, 46]
+seeds_smoke:       [42, 43, 44]
+
+# Shared stopping protocol (spec §4)
+protocol:
+  epsilon: 0.05
+  alpha: 0.05
+  alpha_1: 0.025
+  alpha_2: 0.025
+  K: 1
+  theta: 0.5
+  c_betting: 0.5
+  c_fixed: 0.5
+  cs_grid_size: 2000
+  fixed_horizon: false
+  monitor_to_T_max: true  # new flag: continue past epsilon; record stop time
+
+# Method-specific parameters (spec §2)
+methods:
+  M1:  # SAVE-ADA
+    uniform_acquisition: false
+    adaptive_bounds: true
+    surrogate_type_accuracy: remark2_strategy4
+    surrogate_type_ce: null           # filled by ce_sweep_winner.json
+    beta_min_accuracy: 0.4
+    beta_min_ce: null                 # filled by ce_sweep_winner.json
+    skip_cereval: true                # M5 is a separate method id
+  M2:  # SAVE-fixed
+    uniform_acquisition: false
+    adaptive_bounds: false
+    surrogate_type_accuracy: remark2_strategy4
+    surrogate_type_ce: null
+    beta_min_accuracy: 0.4
+    beta_min_ce: null
+    skip_cereval: true
+  M3:  # save-no-surrogate
+    uniform_acquisition: true
+    adaptive_bounds: true
+    surrogate_type_accuracy: none
+    surrogate_type_ce: none
+    beta_min_accuracy: 0.4
+    beta_min_ce: 0.4
+    skip_cereval: true
+  M4:  # naive e-value baseline
+    uniform_acquisition: true
+    adaptive_bounds: false
+    surrogate_type_accuracy: none
+    surrogate_type_ce: none
+    beta_min_accuracy: 0.4
+    beta_min_ce: 0.4
+    skip_cereval: true
+  M5:  # Cer-Eval (run via CerEvalBaseline directly)
+    m_init: 100
+
+# Cer-Eval (M5) scope for the paper campaign.
+# - In practice Cer-Eval sets K=1, making the surrogate choice irrelevant for
+#   the estimator. We therefore run M5 with one canonical surrogate per
+#   target (first occurrence of each target in pairs_weak+pairs_strong) to
+#   avoid ~60% redundant trajectories that would collapse to identical
+#   behaviour.
+# - Cross-entropy is intentionally excluded: no published Cer-Eval baseline
+#   competes on CE loss in this paper.
+cereval_scope:
+  losses: [accuracy]
+  collapse_by_target: true
+
+# CE mini-sweep axes (spec §5)
+ce_sweep:
+  strategies: [remark1_strategy1, remark1_strategy2, remark1_strategy3]
+  beta_mins:  [0.1, 0.2, 0.4, 0.6, 0.8]
+  cells_weak:
+    - { dataset: sst2,   surrogate: llama2_7b,  target: Mixtral_8x7b }
+    - { dataset: mmlu,   surrogate: llama2_7b,  target: qwen25_72b }
+    - { dataset: agnews, surrogate: llama3_8b,  target: deepseek_67b }
+    - { dataset: sst2,   surrogate: llama3_8b,  target: llama3_70b }
+  cells_strong:
+    - { dataset: mmlu,   surrogate: deepseek_67b, target: llama3_70b }
+    - { dataset: agnews, surrogate: qwen25_72b,   target: llama3_70b }
+  selection:
+    min_stop_rate: 0.8          # hard filter B (spec §5)
+    required_miscoverages: 0    # hard filter A (spec §5)
+    tie_break_pct: 0.05         # within 5% of minimum (spec §5)
+
+# Beta sensitivity (spec §6)
+beta_sweep:
+  beta_mins: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+  pairs_representative:
+    - { dataset: sst2,   surrogate: llama3_8b,    target: qwen25_72b }     # weak
+    - { dataset: sst2,   surrogate: qwen25_72b,   target: llama3_70b }     # strong
+    - { dataset: mmlu,   surrogate: llama2_7b,    target: llama3_70b }     # weak
+    - { dataset: mmlu,   surrogate: deepseek_67b, target: llama3_70b }     # strong
+    - { dataset: agnews, surrogate: llama3_8b,    target: deepseek_67b }   # weak
+    - { dataset: agnews, surrogate: qwen25_72b,   target: llama3_70b }     # strong
+
+smoke:
+  # Spec §9 Stage 1: one cell, 12 trajectories = 4 methods × 3 seeds
+  dataset: sst2
+  surrogate: llama2_7b
+  target: Mixtral_8x7b
+  loss: accuracy
+  methods: [M1, M2, M3, M4]
+
+disk_audit:
+  min_bytes_free: 107374182400   # 100 GB
+  min_inodes_free: 2000
+  probe_path: results/paper_experiment/_probe.npz
+
+# Per-target NLL filter for cross-entropy loss (§ paper campaign 2026-04-20).
+# Drops samples where target model's per-sample CE > threshold, applied at
+# load time (no on-disk variants). Accuracy loss is unaffected (filter is
+# silently ignored for accuracy).
+# Scientific rationale: Berrada et al. 2025 (mislabeling removal) AND bounded-
+# loss regime for e-value CS — reduces pool-Hoeffding floor
+#     2·δ_N = 2·L·√(log(2/α₂)/(2N))
+# below ε=0.05 for every CE pair in the campaign.
+ce_nll_filter:
+  enabled: true
+  threshold: 3.0
+
+# Acquisition sweep (§6.5 item #1, Task 1 / S0 picks).
+# Lowest-MAE and highest-MAE pair per dataset, averaged over losses, from
+# results/paper_experiment/mae_axis.csv. Note: deployed strategies (remark2_S4
+# for accuracy, remark1_S2 for CE) score from the target's predicted
+# distribution, so MAE is target-driven; any surrogate sharing the same target
+# yields identical MAE — first row chosen on ties.
+acquisition_sweep:
+  cells_legacy:
+    - { dataset: sst2,   surrogate: llama2_7b,  target: qwen25_72b }   # lowest-MAE
+    - { dataset: sst2,   surrogate: qwen25_72b, target: llama3_70b }   # highest-MAE
+    - { dataset: mmlu,   surrogate: llama2_7b,  target: qwen25_72b }   # lowest
+    - { dataset: mmlu,   surrogate: llama2_7b,  target: deepseek_67b } # highest
+    - { dataset: agnews, surrogate: llama2_7b,  target: qwen25_72b }   # lowest
+    - { dataset: agnews, surrogate: qwen25_72b, target: llama3_70b }   # highest
+  # Strategy enumeration (spec §6.5 item #3, locked in Task 7).
+  # Accuracy: 4 new variants (Strategy 4 already deployed in trajectories/main/).
+  # CE: 3 new variants (Strategy 2 already deployed in trajectories/main/).
+  variants_legacy_accuracy:
+    - remark2_strategy1
+    - remark2_strategy2
+    - remark2_strategy3
+    - remark2_strategy5
+  variants_legacy_cross_entropy:
+    - remark1_strategy1
+    - remark1_strategy3
+    - remark1_oracle
+  # v0504 scope: 18 cells (6 paper_pairs × 3 datasets) × focused strategies.
+  # Extends v0502's 12-cell list with 6 new cells covering the two
+  # deepseek_67b-target paper_pairs (llama2_7b/llama3_8b -> deepseek_67b)
+  # across all 3 datasets. New cells appended at the end so v0502's index
+  # ordering [0,11] is preserved; v0504-only indices are [12,17].
+  cells_v0502:
+    - { dataset: sst2,   surrogate: llama3_8b, target: llama3_70b   }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: llama3_70b   }
+    - { dataset: agnews, surrogate: llama3_8b, target: llama3_70b   }
+    - { dataset: sst2,   surrogate: llama2_7b, target: llama3_70b   }
+    - { dataset: mmlu,   surrogate: llama2_7b, target: llama3_70b   }
+    - { dataset: agnews, surrogate: llama2_7b, target: llama3_70b   }
+    - { dataset: sst2,   surrogate: llama3_8b, target: qwen25_72b   }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: qwen25_72b   }
+    - { dataset: agnews, surrogate: llama3_8b, target: qwen25_72b   }
+    - { dataset: sst2,   surrogate: llama3_8b, target: Mixtral_8x7b }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: Mixtral_8x7b }
+    - { dataset: agnews, surrogate: llama3_8b, target: Mixtral_8x7b }
+    # ---- v0504 extension below ----
+    - { dataset: sst2,   surrogate: llama2_7b, target: deepseek_67b }
+    - { dataset: mmlu,   surrogate: llama2_7b, target: deepseek_67b }
+    - { dataset: agnews, surrogate: llama2_7b, target: deepseek_67b }
+    - { dataset: sst2,   surrogate: llama3_8b, target: deepseek_67b }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: deepseek_67b }
+    - { dataset: agnews, surrogate: llama3_8b, target: deepseek_67b }
+  strategies_v0502:
+    accuracy:      [remark2_strategy2, remark2_strategy3]
+    cross_entropy: [remark1_strategy1, remark1_strategy3, remark1_oracle]
+  # First 15 of seeds_main; chunk_size=5 -> 3 chunks per (cell, variant).
+  seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56]
+  beta_min: 0.4
+
+# Hyperparameter sweep (§6.5 item #4, locked in Task 8).
+# OAT design: 1 baseline + 2 perturbations × 3 axes (α-split, θ, c_betting/c_fixed)
+# = 7 unique configs. The baseline is shared across all three axis comparisons.
+# Reuses the 4 weak ce_sweep cells (same as ce_sweep.cells_weak). Accuracy-only;
+# surrogate_type is fixed at remark2_strategy4 (deployed). Seeds [100..109] are
+# disjoint from seeds_main to keep this comparison independent of §6.1 trajectories.
+hparam_sweep:
+  cells:
+    - { dataset: sst2,   surrogate: llama2_7b, target: Mixtral_8x7b }
+    - { dataset: mmlu,   surrogate: llama2_7b, target: qwen25_72b }
+    - { dataset: agnews, surrogate: llama3_8b, target: deepseek_67b }
+    - { dataset: sst2,   surrogate: llama3_8b, target: llama3_70b }
+  configs:
+    - { name: baseline, alpha_1: 0.025, theta: 0.5,  c_betting: 0.5, c_fixed: 0.5 }
+    - { name: alpha_lo, alpha_1: 0.005, theta: 0.5,  c_betting: 0.5, c_fixed: 0.5 }
+    - { name: alpha_hi, alpha_1: 0.045, theta: 0.5,  c_betting: 0.5, c_fixed: 0.5 }
+    - { name: theta_lo, alpha_1: 0.025, theta: 0.25, c_betting: 0.5, c_fixed: 0.5 }
+    - { name: theta_hi, alpha_1: 0.025, theta: 0.75, c_betting: 0.5, c_fixed: 0.5 }
+    - { name: c_lo,     alpha_1: 0.025, theta: 0.5,  c_betting: 0.3, c_fixed: 0.3 }
+    - { name: c_hi,     alpha_1: 0.025, theta: 0.5,  c_betting: 0.7, c_fixed: 0.7 }
+  seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+  beta_min: 0.4
+  loss: accuracy
+
+# Wallclock stage (§6.5 item #5, locked in Task 9).
+# Cer-Eval per-round timing on 4 cells x 5 seeds (accuracy-only). Pairs with
+# Cer-Eval's existing summary.csv elapsed_seconds + new round_times array,
+# so the paper's compute-cost plot can show M5 alongside SAVE/IID.
+# 4 cells x 5 seeds x 1 chunk-each = 20 SLURM tasks at chunk_size=1
+# (Cer-Eval is too slow for chunks of 5 — see stage0_cereval_fresh.slurm).
+wallclock:
+  cells:
+    - { dataset: sst2,   surrogate: llama2_7b, target: Mixtral_8x7b }
+    - { dataset: mmlu,   surrogate: llama2_7b, target: qwen25_72b }
+    - { dataset: agnews, surrogate: llama3_8b, target: deepseek_67b }
+    - { dataset: sst2,   surrogate: llama3_8b, target: llama3_70b }
+  seeds: [42, 43, 44, 45, 46]
+  loss: accuracy
+  # Cap T_max for the wallclock stage: per-round timing is the metric, so
+  # running Cer-Eval to completion of N=128k pools is unnecessary. 2000
+  # rounds is enough to characterise per-round wall-clock distribution
+  # (Cer-Eval re-partitions every "old" rounds with old growing ~1.1×, so
+  # this captures multiple partition events). Drop the cap (set null) to
+  # restore full-pool runs.
+  t_max_cap: 2000

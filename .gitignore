@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Egg info
+*.egg-info/
+*.egg
+
+# macOS
+.DS_Store
+
+# Temporary
+tmp/
+logs/
+
+# IDE
+.vscode/
+.idea/
+results/
+
+# Git worktrees (used by subagent-driven development)
+.worktrees/
+
+# Local Codex helper marker
+.codex
+paper/.ye-findings/

@@ -1,0 +1,18 @@
+dataset: mmlu
+data_root: ../../../data_process
+target_model: llama3_70b
+surrogate_model: llama3_8b
+surrogate_type: auto
+
+save_config:
+  K: 1
+  alpha_1: 0.025
+  alpha_2: 0.025
+  epsilon: 0.02
+  T_max: 5000
+  cs_grid_size: 2000
+  c_betting: 0.5
+  theta: 0.5
+  seed: 42
+
+output_dir: results/llm_experiments
