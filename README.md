@@ -1,4 +1,4 @@
-# SAVE — Sequential Active eValuation via E-values
+# CELEUS: Certifiable and Efficient Evaluation via E-Processes
 
 Reference implementation accompanying an anonymous NeurIPS submission.
 
