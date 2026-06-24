@@ -1,6 +1,6 @@
 # CELEUS: Certifiable and Efficient Evaluation via E-Processes
 
-Reference implementation accompanying an anonymous NeurIPS submission.
+Reference implementation accompanying paper accepted to the ICML'26 Hypothesis Workshop.
 
 > **Note on package name.** The Python package is imported as `save` for
 > historical reasons. All exposed APIs, CLI flags, and config keys retain that
