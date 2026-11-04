@@ -1,6 +1,6 @@
-# CELEUS: Certifiable and Efficient Evaluation via E-Processes
+# CELEUS: Certifiable and Efficient LLM Evaluation via E-Processes
 
-Reference implementation accompanying paper accepted to the ICML'26 Hypothesis Workshop.
+Reference implementation accompanying the NeurIPS 2026 paper *CELEUS: Certifiable and Efficient LLM Evaluation via E-Processes*.
 
 > **Note on package name.** The Python package is imported as `save` for
 > historical reasons. All exposed APIs, CLI flags, and config keys retain that
@@ -156,7 +156,6 @@ is bounded by 1e-6 in the reported metrics.
 
 ## License
 
-The code is released under the MIT License for the purpose of NeurIPS review;
-see `LICENSE` for the full text once the non-anonymous version is published.
+The code is released under the MIT License; see `LICENSE` for the full text.
 Pool fixtures and pretrained model logits inherit the licenses of their
 respective sources.
