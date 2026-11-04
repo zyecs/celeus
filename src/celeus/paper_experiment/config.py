@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import math
 import os
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -43,8 +44,8 @@ _OPTIONAL_KEYS_WITH_DEFAULTS: dict[str, Any] = {
         "cells_legacy": [],
         "variants_legacy_accuracy": [],
         "variants_legacy_cross_entropy": [],
-        "cells_v0502": [],
-        "strategies_v0502": {"accuracy": [], "cross_entropy": []},
+        "cells_paper": [],
+        "strategies_paper": {"accuracy": [], "cross_entropy": []},
         "seeds": [],
         "beta_min": 0.4,
     },
@@ -97,8 +98,8 @@ class PaperExperimentConfig:
             "cells_legacy": [],
             "variants_legacy_accuracy": [],
             "variants_legacy_cross_entropy": [],
-            "cells_v0502": [],
-            "strategies_v0502": {"accuracy": [], "cross_entropy": []},
+            "cells_paper": [],
+            "strategies_paper": {"accuracy": [], "cross_entropy": []},
             "seeds": [],
             "beta_min": 0.4,
         }
@@ -210,6 +211,26 @@ def _validate_paper_pairs(cfg: object) -> None:
             )
 
 
+
+# Older configs named the paper-pair acquisition cells after an internal
+# snapshot ("v0502"). Accept those names here, and only here.
+_LEGACY_ACQUISITION_KEYS = {"cells_v0502": "cells_paper", "strategies_v0502": "strategies_paper"}
+
+
+def _rename_legacy_acquisition_keys(data: dict[str, Any], path: str | Path) -> None:
+    block = data.get("acquisition_sweep")
+    if not block:
+        return
+    for old, new in _LEGACY_ACQUISITION_KEYS.items():
+        if old not in block:
+            continue
+        if new in block:
+            raise ValueError(f"{path}: acquisition_sweep sets both {old!r} and {new!r}")
+        warnings.warn(f"{path}: acquisition_sweep.{old} is deprecated; rename it to {new}",
+                      DeprecationWarning, stacklevel=3)
+        block[new] = block.pop(old)
+
+
 def load_config(path: str | Path) -> PaperExperimentConfig:
     with open(path, "r") as fh:
         data: dict[str, Any] = yaml.safe_load(fh)
@@ -219,6 +240,7 @@ def load_config(path: str | Path) -> PaperExperimentConfig:
     missing = _REQUIRED_TOP_LEVEL_KEYS - set(data.keys())
     if missing:
         raise ValueError(f"missing top-level keys in {path}: {sorted(missing)}")
+    _rename_legacy_acquisition_keys(data, path)
     for k, default in _OPTIONAL_KEYS_WITH_DEFAULTS.items():
         if data.get(k) is None:
             data[k] = copy.deepcopy(default)

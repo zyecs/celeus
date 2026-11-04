@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out-root", type=Path, default=None,
                     help="Override results root. Default: cfg.paths['out_root'].")
     ap.add_argument("--paper-pairs", action="store_true",
-                    help="Filter to cfg.paper_pair_keys (v0502 scope); "
+                    help="Filter to cfg.paper_pair_keys; "
                          "compute_mae_axis.py handles the filter upstream.")
     args = ap.parse_args(argv)
     cfg = load_config(default_config_path())

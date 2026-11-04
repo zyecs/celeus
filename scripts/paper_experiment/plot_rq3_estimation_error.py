@@ -102,7 +102,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--paper-pairs",
         action="store_true",
-        help="Filter cells to cfg.paper_pair_keys (v0502 scope).",
+        help="Filter cells to cfg.paper_pair_keys.",
     )
     parser.add_argument(
         "--out-root",

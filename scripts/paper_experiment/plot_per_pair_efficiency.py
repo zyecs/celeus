@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Per-(model-pair) confidence-interval-width trajectories, accuracy-only.
 
-Mirrors the visual style of plot_rq1_efficiency_new.py but disaggregates the
+Mirrors the visual style of plot_rq1_efficiency.py but disaggregates the
 per-dataset pool into a (paper_pair × dataset) grid so reviewers can verify
 that CELEUS beats the baseline at every individual cell, not just on the
 dataset mean.
@@ -47,18 +47,17 @@ if str(_SCRIPT_DIR) not in sys.path:
 from celeus.paper_experiment.config import default_config_path, load_config  # noqa: E402
 
 import rq1_efficiency_common as common  # noqa: E402
-import plot_rq1_efficiency as base  # noqa: E402
-import plot_rq1_efficiency_new as new_mod  # noqa: E402
+import plot_rq1_efficiency as rq1_plot  # noqa: E402
 
 
-_DATASET_LABELS = new_mod.DATASET_LABELS
+_DATASET_LABELS = rq1_plot.DATASET_LABELS
 _METHOD_ORDER = ("M1", "M3", "ORACLE_ACC", "M4")
-_METHOD_STYLE = new_mod.METHOD_STYLE
-_EPSILON = new_mod.EPSILON
-_Y_LIM = new_mod.Y_LIM
+_METHOD_STYLE = rq1_plot.METHOD_STYLE
+_EPSILON = rq1_plot.EPSILON
+_Y_LIM = rq1_plot.Y_LIM
 # Methods to mark with median-labels-to-ε markers on the ε hairline.
 _MEDIAN_MARKER_METHODS = ("M1", "ORACLE_ACC")
-_MEDIAN_MARKER_STYLE = new_mod._MEDIAN_MARKER_STYLE
+_MEDIAN_MARKER_STYLE = rq1_plot._MEDIAN_MARKER_STYLE
 # Pairs to skip in the per-pair grid (presentation knob; doesn't affect
 # the v0504 paper_pair scope or other figures). Empty by default.
 _EXCLUDED_PAIRS_FOR_GRID: set[tuple[str, str]] = set()
@@ -100,7 +99,7 @@ def _aggregate_per_pair(
         )
         matrix = np.vstack(
             [
-                base.right_continuous_resample(item.labels, item.widths, grid)
+                common.right_continuous_resample(item.labels, item.widths, grid)
                 for item in items
             ]
         )
@@ -179,7 +178,7 @@ def plot_per_pair_grid(
     methods: tuple[str, ...] = _METHOD_ORDER,
     median_labels: dict[tuple[str, str, str, str], int] | None = None,
 ) -> None:
-    base.apply_rq1_nature_style()
+    common.apply_rq1_nature_style()
     plt.rcParams.update(_FONT_SIZES)
     n_rows, n_cols = len(pairs), len(datasets)
     fig, axes = plt.subplots(
@@ -206,7 +205,7 @@ def plot_per_pair_grid(
                 x = rows["labels_used"].to_numpy(dtype=np.int64)
                 mean = rows["mean_width"].to_numpy(dtype=np.float64)
                 std = rows["std_width"].to_numpy(dtype=np.float64)
-                x, mean, std = base._insert_boundary_anchors(x, mean, std, x_end=x_end)
+                x, mean, std = common.insert_boundary_anchors(x, mean, std, x_end=x_end)
                 style = _METHOD_STYLE[method]
                 ax.plot(x, mean,
                         color=style["color"],
@@ -254,7 +253,7 @@ def plot_per_pair_grid(
             ax.grid(axis="y")
             ax.spines["left"].set_color("#7A7A7A")
             ax.spines["bottom"].set_color("#7A7A7A")
-            ax.xaxis.set_major_formatter(FuncFormatter(base._format_labels))
+            ax.xaxis.set_major_formatter(FuncFormatter(common.format_thousands))
             if r == 0:
                 ax.set_title(_DATASET_LABELS.get(dataset, dataset))
             if r == n_rows - 1:
@@ -324,9 +323,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config", type=Path, default=default_config_path())
     ap.add_argument("--input-root", type=Path,
-                    default=_REPO / "results" / "paper_experiments_v0504")
+                    default=_REPO / "results" / "paper_outputs")
     ap.add_argument("--output-root", type=Path,
-                    default=_REPO / "results" / "paper_experiments_v0504" / "per_pair_efficiency")
+                    default=_REPO / "results" / "paper_outputs" / "per_pair_efficiency")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)

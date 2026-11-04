@@ -12,7 +12,7 @@ existing acquisition_appendix/tab_strategies_v0502_top3.tex. Curves are
 the mean width across (paper_pair × seed) within each (strategy, dataset)
 slice.
 
-Mirrors the visual conventions of plot_rq1_efficiency_new.py (Helvetica,
+Mirrors the visual conventions of plot_rq1_efficiency.py (Helvetica,
 steps-post draw, ε hairline, large fonts).
 """
 from __future__ import annotations
@@ -49,8 +49,7 @@ from celeus.paper_experiment.cell_paths import (  # noqa: E402
 )
 from celeus.paper_experiment.cell_schema import load_cell  # noqa: E402
 
-import plot_rq1_efficiency as base  # noqa: E402
-
+import rq1_efficiency_common as common  # noqa: E402
 
 _DATASET_LABELS = {"sst2": "SST-2", "mmlu": "MMLU", "agnews": "AG News"}
 _EPSILON = 0.05
@@ -161,7 +160,7 @@ def _load_widths_for_strategy(
             dtype=np.int64,
         )
         mat = np.vstack([
-            base.right_continuous_resample(labs, w, grid)
+            common.right_continuous_resample(labs, w, grid)
             for labs, w in per_seed_curves
         ])
         mean = mat.mean(axis=0)
@@ -201,7 +200,7 @@ def _plot_loss_figure(
     """One row × N-dataset figure. ``strategies`` is a list of
     (display_label, dataframe). The first strategy's CELEUS-equivalent
     curve sets the panel x_end (rightmost label where its mean hits ε)."""
-    base.apply_rq1_nature_style()
+    common.apply_rq1_nature_style()
     plt.rcParams.update(_FONT_SIZES)
     y_lim = _Y_LIM_BY_LOSS[loss]
     n = len(datasets)
@@ -243,7 +242,7 @@ def _plot_loss_figure(
                    linestyle="--", zorder=1)
         ax.set_title(_DATASET_LABELS.get(ds, ds))
         ax.set_xlabel("Evaluated Samples")
-        ax.xaxis.set_major_formatter(FuncFormatter(base._format_labels))
+        ax.xaxis.set_major_formatter(FuncFormatter(common.format_thousands))
         ax.set_xlim(500, x_end)
         ax.set_ylim(*y_lim)
         ax.grid(axis="y")
@@ -282,9 +281,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config", type=Path, default=default_config_path())
     ap.add_argument("--input-root", type=Path,
-                    default=_REPO / "results" / "paper_experiments_v0504")
+                    default=_REPO / "results" / "paper_outputs")
     ap.add_argument("--output-root", type=Path,
-                    default=_REPO / "results" / "paper_experiments_v0504" / "acquisition_appendix")
+                    default=_REPO / "results" / "paper_outputs" / "acquisition_appendix")
     ap.add_argument("--top-k", type=int, default=3,
                     help="Number of strategies per loss (default 3).")
     args = ap.parse_args(argv)

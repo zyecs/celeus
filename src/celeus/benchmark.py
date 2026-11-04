@@ -8,11 +8,9 @@ from __future__ import annotations
 import dataclasses
 import warnings
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-import yaml
 
 from celeus.allocation.uniform import UniformAllocation
 from celeus.acquisition.residual_magnitude import ResidualMagnitudeAcquisition
@@ -343,24 +341,3 @@ def run_benchmark(
         runtime_grid_size=celeus_grid_size,
         runtime_cs_range=celeus_cs_range,
     )
-
-
-def run_batch(config_dir: str) -> list[BenchmarkResult]:
-    """Run all YAML experiment configs in a directory."""
-    config_path = Path(config_dir)
-    results = []
-    for yaml_file in sorted(config_path.glob("*.yaml")):
-        with open(yaml_file) as f:
-            config = yaml.safe_load(f)
-        if "data_root" in config:
-            data_root = Path(config["data_root"])
-            if not data_root.is_absolute():
-                config["data_root"] = str(yaml_file.parent / data_root)
-        print(f"Running: {yaml_file.name} ...")
-        result = run_benchmark(config)
-        results.append(result)
-        print(
-            f"  CELEUS: {result.celeus_labels} labels, width={result.celeus_width:.4f} | "
-            f"Baseline: {result.baseline_labels} labels, width={result.baseline_width:.4f}"
-        )
-    return results

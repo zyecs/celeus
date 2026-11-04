@@ -81,7 +81,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument(
         "--paper-pairs", action="store_true",
-        help="Restrict cell audit to cfg.paper_pair_keys (v0502 scope).",
+        help="Restrict cell audit to cfg.paper_pair_keys.",
     )
     return p.parse_args(argv)
 

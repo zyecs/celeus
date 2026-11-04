@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import platform
-import re
 import shutil
 import socket
 import subprocess
@@ -57,16 +56,16 @@ def _preflight(target_dir: Path, min_free_gb: int = 10) -> None:
 
 def _symlink_filtered_cells(
     legacy_root: Path,
-    v0502_root: Path,
+    out_root: Path,
     subdir: str,
     paper_pairs: set[tuple[str, str]],
     *,
     skip_m5: bool = True,
 ) -> list[dict]:
-    """Symlink cells under legacy_root/<subdir> into v0502_root/<subdir>,
+    """Symlink cells under legacy_root/<subdir> into out_root/<subdir>,
     keeping only cells whose (surrogate, target) is in paper_pairs."""
     src_dir = legacy_root / subdir
-    dst_dir = v0502_root / subdir
+    dst_dir = out_root / subdir
     dst_dir.mkdir(parents=True, exist_ok=True)
     manifest_rows = []
     if not src_dir.is_dir():
@@ -90,7 +89,7 @@ def _symlink_filtered_cells(
 
 def _filter_csv_files(
     legacy_root: Path,
-    v0502_root: Path,
+    out_root: Path,
     paper_pairs: set[tuple[str, str]],
 ) -> list[dict]:
     """Filter+rewrite per_seed_curves.csv AND per_cell_curves.csv files for rq4/5/6."""
@@ -125,10 +124,10 @@ def _filter_csv_files(
         filtered = df[keep_mask].copy()
 
         legacy_prefix = "results/paper_experiment/"
-        v0502_prefix = "results/paper_experiments_v0502/"
-        filtered["cell"] = filtered["cell"].str.replace(legacy_prefix, v0502_prefix, regex=False)
+        out_prefix = "results/paper_outputs/"
+        filtered["cell"] = filtered["cell"].str.replace(legacy_prefix, out_prefix, regex=False)
 
-        dst = v0502_root / rel
+        dst = out_root / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         filtered.to_csv(dst, index=False)
 
@@ -140,7 +139,7 @@ def _filter_csv_files(
     return manifest_rows
 
 
-def _symlink_scalar_inputs(legacy_root: Path, v0502_root: Path) -> list[dict]:
+def _symlink_scalar_inputs(legacy_root: Path, out_root: Path) -> list[dict]:
     """Symlink R_N.csv, ce_sweep_winner.json, extreme_pairs.yaml into v0502."""
     files = ["R_N.csv", "ce_sweep_winner.json", "extreme_pairs.yaml"]
     manifest_rows = []
@@ -148,7 +147,7 @@ def _symlink_scalar_inputs(legacy_root: Path, v0502_root: Path) -> list[dict]:
         src = legacy_root / f
         if not src.is_file():
             continue
-        dst = v0502_root / f
+        dst = out_root / f
         if dst.exists() or dst.is_symlink():
             dst.unlink()
         os.symlink(src.resolve(), dst)
@@ -172,7 +171,7 @@ def _git_dirty() -> bool:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-root", type=Path,
-                    default=_REPO / "results" / "paper_experiments_v0502")
+                    default=_REPO / "results" / "paper_outputs")
     args = ap.parse_args(argv)
     out_root: Path = args.out_root
     out_root.mkdir(parents=True, exist_ok=True)
@@ -220,11 +219,11 @@ def main(argv: list[str] | None = None) -> int:
             existing = json.loads(manifest_path.read_text())
         except json.JSONDecodeError:
             existing = {}
-    preserved_acq_run = existing.get("scope_mapping", {}).get("acq_sweep_v0502_run", [])
+    preserved_acq_run = existing.get("scope_mapping", {}).get("acq_sweep_run", [])
 
     manifest = {
         "schema_version": "1",
-        "v0502_built_utc": datetime.now(timezone.utc).isoformat(),
+        "built_utc": datetime.now(timezone.utc).isoformat(),
         "git_commit": _git_commit(),
         "git_dirty": _git_dirty(),
         "config_path": str(cfg_path),
@@ -234,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
             "main_cells_symlinked": main_rows,
             "oracle_cells_symlinked": oracle_rows,
             "acq_sweep_legacy_symlinked": legacy_acq_rows,
-            "acq_sweep_v0502_run": preserved_acq_run,
+            "acq_sweep_run": preserved_acq_run,
         },
         "per_seed_curves_filtered": per_seed_rows,
         "scalar_inputs_symlinked": scalar_rows,
@@ -247,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
             "pip_freeze": pip_freeze,
         },
         "row_count_checks": existing.get("row_count_checks", {}),
-        "command_line": "python scripts/paper_experiment/build_v0502_snapshot.py "
+        "command_line": "python scripts/paper_experiment/build_snapshot.py "
                         + " ".join(argv if argv else []),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
@@ -255,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"summary: main={len(main_rows)}, oracle={len(oracle_rows)}, "
           f"acq_legacy={len(legacy_acq_rows)}, csvs={len(per_seed_rows)}, "
           f"scalar={len(scalar_rows)}, "
-          f"preserved acq_v0502_run entries={len(preserved_acq_run)}")
+          f"preserved acq_sweep_run entries={len(preserved_acq_run)}")
     return 0
 
 

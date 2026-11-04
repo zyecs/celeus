@@ -18,7 +18,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from celeus.config_keys import method_config
 from celeus.partition import EvaluationPool
 
 
@@ -73,7 +72,7 @@ def compute_surrogate_scores(
 
 # Surrogate types whose scores may exceed [0, 1]
 _UNBOUNDED_SURROGATES = frozenset({
-    "surrogate_ce_loss", "xgboost", "xgboost_oracle", "cross_entropy_proxy",
+    "surrogate_ce_loss", "cross_entropy_proxy",
 })
 
 
@@ -440,8 +439,8 @@ def load_experiment(
                     "Remark 1 in the draft (lines 433-453) is designed for "
                     "continuous losses; combining it with loss_type='accuracy' "
                     "produces proxies on a different scale than the 0/1 true "
-                    "loss and is not supported. Use surrogate_type='xgboost' "
-                    "or 'inv_max_softmax' for accuracy experiments."
+                    "loss and is not supported. Use surrogate_type='inv_max_softmax' "
+                    "for accuracy experiments."
                 )
             target_logits_path = target_dir / "all_set_scores.pt"
             if not target_logits_path.is_file():
@@ -590,29 +589,6 @@ def load_experiment(
                 )
                 surrogate_scores = compute_cross_entropy_proxy(
                     surrogate_logits, target_logits_for_proxy
-                )
-            elif surrogate_type in ("xgboost", "xgboost_oracle"):
-                # Oracle-assisted XGBoost surrogate — Source: spec §4.2
-                from celeus.surrogate_xgboost import train_xgboost_surrogate
-                surr_logits_np = surrogate_logits.detach().cpu().numpy().astype(np.float64)
-                tgt_logits_np = None
-                if surrogate_type == "xgboost_oracle":
-                    tgt_logits_path = target_dir / "all_set_scores.pt"
-                    if tgt_logits_path.is_file():
-                        _tgt_raw = _load_pt(tgt_logits_path).float()
-                        _tgt_raw = _apply_mask_to_tensor(
-                            _tgt_raw, N_raw, mask, tgt_logits_path,
-                        )
-                        tgt_logits_np = _tgt_raw.detach().cpu().numpy().astype(np.float64)
-                    else:
-                        warnings.warn(
-                            "xgboost_oracle requested but target logits unavailable; "
-                            "falling back to xgboost (surrogate-only features).",
-                            stacklevel=2,
-                        )
-                seed = method_config(config).get("seed", 42)
-                surrogate_scores = train_xgboost_surrogate(
-                    surr_logits_np, ground_truth_losses, seed, tgt_logits_np
                 )
             else:
                 surrogate_scores = compute_surrogate_scores(surrogate_logits, surrogate_type)

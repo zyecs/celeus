@@ -886,18 +886,18 @@ def run_merge_cells(
 
     # v0502 cells use seeds_main (50 seeds). Gate on directory presence,
     # NOT on out_root path string (Opus MAJOR #2):
-    v0502_subcells = out_root / "_subcells" / "acquisition_sweep"
-    v0502_cells_dir = out_root / "trajectories" / "acquisition_sweep"
-    v0502_has_data = (
-        (v0502_subcells.exists() and any(v0502_subcells.iterdir()))
-        or (v0502_cells_dir.exists()
-            and any(v0502_cells_dir.glob("cell__acquisition_sweep__*__remark2_strategy2__*.npz")))
+    paper_subcells = out_root / "_subcells" / "acquisition_sweep"
+    paper_cells_dir = out_root / "trajectories" / "acquisition_sweep"
+    paper_has_data = (
+        (paper_subcells.exists() and any(paper_subcells.iterdir()))
+        or (paper_cells_dir.exists()
+            and any(paper_cells_dir.glob("cell__acquisition_sweep__*__remark2_strategy2__*.npz")))
     )
-    if v0502_has_data:
-        acq_seeds_v0502 = list(cfg.seeds_main)
+    if paper_has_data:
+        acq_seeds_paper = list(cfg.seeds_main)
         for loss in cfg.losses:
-            for cell in acquisition_sweep_cells(cfg, loss=loss, scope="v0502"):
-                targets.append(("acquisition_sweep", cell, acq_seeds_v0502))
+            for cell in acquisition_sweep_cells(cfg, loss=loss, scope="paper"):
+                targets.append(("acquisition_sweep", cell, acq_seeds_paper))
     # §6.5 hparam-sweep: extends index range past acquisition_sweep.
     hp_seeds = list(cfg.hparam_sweep["seeds"])
     if hp_seeds:

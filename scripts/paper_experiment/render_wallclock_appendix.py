@@ -10,7 +10,7 @@ seconds-per-round.
 
 Wallclock data is scope-agnostic (was set in advance for cell-cost
 characterization, independent of paper_pair selection). When ``--out-root``
-points at a snapshot dir like ``results/paper_experiments_v0504``, we still
+points at a snapshot dir like ``results/paper_outputs``, we still
 read the timing rows from the canonical ``paper_experiment/summary.csv``
 unless ``--summary-root`` overrides.
 

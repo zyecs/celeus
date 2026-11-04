@@ -638,3 +638,111 @@ def collect_selected_cereval_repair_targets(
                 )
             )
     return targets
+
+
+# Plot helpers shared by the RQ1-style width figures.
+
+def apply_rq1_nature_style() -> None:
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "figure.dpi": 120,
+            "savefig.dpi": 300,
+            "pdf.fonttype": 42,
+            "font.size": 10,
+            "axes.titlesize": 14,
+            "axes.labelsize": 10,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "axes.facecolor": "white",
+            "figure.facecolor": "white",
+            "grid.color": "#D9D9D9",
+            "grid.linewidth": 0.6,
+            "grid.alpha": 0.7,
+            "axes.grid": False,
+        }
+    )
+
+
+def right_continuous_resample(
+    labels: np.ndarray,
+    widths: np.ndarray,
+    grid: np.ndarray,
+) -> np.ndarray:
+    if labels.ndim != 1 or widths.ndim != 1 or grid.ndim != 1:
+        raise ValueError("labels, widths, and grid must be 1D arrays")
+    if labels.size == 0 or widths.size == 0 or grid.size == 0:
+        raise ValueError("labels, widths, and grid must be non-empty")
+    if labels.shape != widths.shape:
+        raise ValueError("labels and widths must have matching shapes")
+    if np.any(np.diff(labels) < 0):
+        raise ValueError("labels must be monotone nondecreasing")
+    idx = np.searchsorted(labels, grid, side="right") - 1
+    idx = np.clip(idx, 0, len(widths) - 1)
+    return widths[idx]
+
+
+def insert_boundary_anchors(
+    x: np.ndarray,
+    mean: np.ndarray,
+    std: np.ndarray,
+    *,
+    x_end: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Insert (500, ...) and (x_end, ...) anchors with right-continuous lookup.
+
+    - Left anchor (500): skipped if ``x.min() > 500`` (curve genuinely starts
+      after 500, do not extrapolate). Otherwise inserted only if 500 is not
+      already present.
+    - Right anchor (x_end): inserted whenever ``x_end >= x.min()`` (i.e. the
+      anchor would land within or after the curve's data range). This is an
+      intentional divergence from the spec's "do not suppress flat-line"
+      wording: by always inserting the anchor, the rendered CSV is explicit
+      about the value at ``x_end`` for every method, instead of relying on
+      the consumer to interpret the implicit flat-line of a steps-post line.
+      The visual outcome is identical (the right-continuous lookup returns
+      the last data value when ``x_end > max(labels)``).
+      When already present, no duplicate anchor is inserted.
+    """
+    x_arr = np.asarray(x, dtype=np.int64)
+    mean_arr = np.asarray(mean, dtype=np.float64)
+    std_arr = np.asarray(std, dtype=np.float64)
+    if x_arr.size == 0:
+        return x_arr, mean_arr, std_arr
+
+    out_x = list(x_arr.tolist())
+    out_m = list(mean_arr.tolist())
+    out_s = list(std_arr.tolist())
+
+    def _add(boundary: int) -> None:
+        if boundary in out_x:
+            return
+        w = float(right_continuous_resample(x_arr, mean_arr, np.array([boundary]))[0])
+        s = float(right_continuous_resample(x_arr, std_arr, np.array([boundary]))[0])
+        pos = 0
+        while pos < len(out_x) and out_x[pos] < boundary:
+            pos += 1
+        out_x.insert(pos, int(boundary))
+        out_m.insert(pos, w)
+        out_s.insert(pos, s)
+
+    if int(x_arr.min()) <= 500:
+        _add(500)
+    if x_end >= int(x_arr.min()):
+        _add(int(x_end))
+
+    return (
+        np.asarray(out_x, dtype=np.int64),
+        np.asarray(out_m, dtype=np.float64),
+        np.asarray(out_s, dtype=np.float64),
+    )
+
+
+def format_thousands(value: float, _pos: int) -> str:
+    if value < 0:
+        return ""
+    return f"{int(value):,}"

@@ -23,7 +23,7 @@ no SLURM trajectory replay needed.
 
 Usage from project root:
   PYTHONPATH=. python scripts/paper_experiment/plot_rq4_rq5_rq6_combined.py \
-    --out-root results/paper_experiments_v0504
+    --out-root results/paper_outputs
 """
 from __future__ import annotations
 
@@ -286,7 +286,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--out-root", type=Path,
-        default=_REPO / "results" / "paper_experiments_v0504",
+        default=_REPO / "results" / "paper_outputs",
         help="results root for input/output paths.",
     )
     args = parser.parse_args(argv)

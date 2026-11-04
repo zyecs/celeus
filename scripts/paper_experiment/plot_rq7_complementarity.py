@@ -24,7 +24,7 @@ if str(_REPO / "src") not in sys.path:
 from scripts.paper_experiment.compute_rq7_outcomes import ANCHORS  # noqa: E402
 from scripts.paper_experiment.plot_style import apply_rc_helvetica  # noqa: E402
 
-DEFAULT_OUT_ROOT = _REPO / "results" / "paper_experiments_v0502"
+DEFAULT_OUT_ROOT = _REPO / "results" / "paper_outputs"
 PREDICTORS = (
     "rho_acc_full",
     "rho_comp_full",

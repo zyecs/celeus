@@ -221,7 +221,7 @@ def main(argv=None):
     parser.add_argument("--acquisition-showcase", choices=("ada", "oracle_accuracy", "uniform"),
                         default="ada")
     parser.add_argument("--paper-pairs", action="store_true",
-                        help="Filter cells to cfg.paper_pair_keys (v0502 scope).")
+                        help="Filter cells to cfg.paper_pair_keys.")
     parser.add_argument("--out-root", type=Path, default=None,
                         help="Override results root for input/output paths.")
     args = parser.parse_args(argv)

@@ -33,7 +33,7 @@ _STAGES = (
     "ce-sweep", "main-accuracy", "main-ce", "beta-sweep",
     "oracle-accuracy", "acquisition-sweep", "hparam-sweep", "wallclock",
     "merge-cells", "merge-oracle-accuracy", "analyze",
-    "v0502-acq-sweep", "v0502-rebuild",
+    "paper-acq-sweep", "build-outputs",
 )
 
 
@@ -99,19 +99,19 @@ def main(argv: list[str] | None = None) -> int:
             cfg=cfg, loss=args.loss, index=args.index, dry_run=args.dry_run,
         )
 
-    if args.stage == "v0502-acq-sweep":
+    if args.stage == "paper-acq-sweep":
         if not args.loss:
-            parser.error("--stage v0502-acq-sweep requires --loss accuracy|cross_entropy")
+            raise SystemExit("--stage paper-acq-sweep requires --loss accuracy|cross_entropy")
         return stages.run_acquisition_sweep(
-            cfg=cfg, loss=args.loss, scope="v0502",
+            cfg=cfg, loss=args.loss, scope="paper",
             index=args.index, dry_run=args.dry_run,
         )
 
-    if args.stage == "v0502-rebuild":
+    if args.stage == "build-outputs":
         import subprocess
         import sys as _sys
         return subprocess.call(
-            [_sys.executable, "scripts/paper_experiment/build_v0502_outputs.py"]
+            [_sys.executable, "scripts/paper_experiment/build_paper_outputs.py"]
         )
 
     dispatch = {

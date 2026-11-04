@@ -185,7 +185,7 @@ def acquisition_sweep_cells(
     Outer loop is YAML cells, inner is variants — preserves config order so
     SLURM array indices are stable. The `scope` argument selects between the
     legacy 6-cell sweep (`scope="legacy"`) and the v0502 12-cell sweep
-    (`scope="v0502"`); see spec §7.3.
+    (`scope="paper"`); see spec §7.3.
     """
     block = cfg.acquisition_sweep
     if scope == "legacy":
@@ -196,11 +196,11 @@ def acquisition_sweep_cells(
             variants = block["variants_legacy_cross_entropy"]
         else:
             raise ValueError(f"unknown loss {loss!r}")
-    elif scope == "v0502":
-        cells = block["cells_v0502"]
-        if loss not in block["strategies_v0502"]:
+    elif scope == "paper":
+        cells = block["cells_paper"]
+        if loss not in block["strategies_paper"]:
             raise ValueError(f"unknown loss {loss!r}")
-        variants = block["strategies_v0502"][loss]
+        variants = block["strategies_paper"][loss]
     else:
         raise ValueError(f"unknown scope {scope!r}")
     out: list[AcquisitionSweepCell] = []

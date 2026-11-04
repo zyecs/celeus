@@ -35,14 +35,19 @@ pairs_strong:
   - { surrogate: deepseek_67b, target: llama3_70b }
   - { surrogate: qwen25_72b,  target: llama3_70b }
 
-# v0502: 4-pair filter for paper_experiments_v0502 figures and tables.
-# Selected by acquisition-MAE under the deployed strategy R2-S4; spans
-# four LLM target families (Llama, Qwen, Mistral, DeepSeek).
+# v0504: 6-pair filter for paper_experiments_v0504 figures and tables.
+# Extends the v0502 4-pair set with the two deepseek_67b-target pairs
+# (llama2_7b -> deepseek_67b, llama3_8b -> deepseek_67b) so that all four
+# target families (Llama, Qwen, Mistral, DeepSeek) are covered. Resolves
+# the AG-News rq6 sample-bias artefact in v0502 (sub-sample averaging
+# excluded the highest-cond_var(uniform) target, deepseek_67b).
 paper_pairs:
   - { surrogate: llama3_8b, target: llama3_70b }
   - { surrogate: llama2_7b, target: llama3_70b }
   - { surrogate: llama3_8b, target: qwen25_72b }
   - { surrogate: llama3_8b, target: Mixtral_8x7b }
+  - { surrogate: llama2_7b, target: deepseek_67b }
+  - { surrogate: llama3_8b, target: deepseek_67b }
 
 losses: [accuracy, cross_entropy]
 
@@ -199,22 +204,32 @@ acquisition_sweep:
     - remark1_strategy1
     - remark1_strategy3
     - remark1_oracle
-  # v0502 scope: 12 cells (4 paper_pairs × 3 datasets) × focused strategies.
-  # spec §7.3
-  cells_v0502:
-    - { dataset: sst2,   surrogate: llama3_8b, target: llama3_70b }
-    - { dataset: mmlu,   surrogate: llama3_8b, target: llama3_70b }
-    - { dataset: agnews, surrogate: llama3_8b, target: llama3_70b }
-    - { dataset: sst2,   surrogate: llama2_7b, target: llama3_70b }
-    - { dataset: mmlu,   surrogate: llama2_7b, target: llama3_70b }
-    - { dataset: agnews, surrogate: llama2_7b, target: llama3_70b }
-    - { dataset: sst2,   surrogate: llama3_8b, target: qwen25_72b }
-    - { dataset: mmlu,   surrogate: llama3_8b, target: qwen25_72b }
-    - { dataset: agnews, surrogate: llama3_8b, target: qwen25_72b }
+  # v0504 scope: 18 cells (6 paper_pairs × 3 datasets) × focused strategies.
+  # Extends v0502's 12-cell list with 6 new cells covering the two
+  # deepseek_67b-target paper_pairs (llama2_7b/llama3_8b -> deepseek_67b)
+  # across all 3 datasets. New cells appended at the end so v0502's index
+  # ordering [0,11] is preserved; v0504-only indices are [12,17].
+  cells_paper:
+    - { dataset: sst2,   surrogate: llama3_8b, target: llama3_70b   }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: llama3_70b   }
+    - { dataset: agnews, surrogate: llama3_8b, target: llama3_70b   }
+    - { dataset: sst2,   surrogate: llama2_7b, target: llama3_70b   }
+    - { dataset: mmlu,   surrogate: llama2_7b, target: llama3_70b   }
+    - { dataset: agnews, surrogate: llama2_7b, target: llama3_70b   }
+    - { dataset: sst2,   surrogate: llama3_8b, target: qwen25_72b   }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: qwen25_72b   }
+    - { dataset: agnews, surrogate: llama3_8b, target: qwen25_72b   }
     - { dataset: sst2,   surrogate: llama3_8b, target: Mixtral_8x7b }
     - { dataset: mmlu,   surrogate: llama3_8b, target: Mixtral_8x7b }
     - { dataset: agnews, surrogate: llama3_8b, target: Mixtral_8x7b }
-  strategies_v0502:
+    # ---- v0504 extension below ----
+    - { dataset: sst2,   surrogate: llama2_7b, target: deepseek_67b }
+    - { dataset: mmlu,   surrogate: llama2_7b, target: deepseek_67b }
+    - { dataset: agnews, surrogate: llama2_7b, target: deepseek_67b }
+    - { dataset: sst2,   surrogate: llama3_8b, target: deepseek_67b }
+    - { dataset: mmlu,   surrogate: llama3_8b, target: deepseek_67b }
+    - { dataset: agnews, surrogate: llama3_8b, target: deepseek_67b }
+  strategies_paper:
     accuracy:      [remark2_strategy2, remark2_strategy3]
     cross_entropy: [remark1_strategy1, remark1_strategy3, remark1_oracle]
   # First 15 of seeds_main; chunk_size=5 -> 3 chunks per (cell, variant).

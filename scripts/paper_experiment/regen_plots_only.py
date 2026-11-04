@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -143,7 +142,7 @@ def main(argv=None):
                         help="prepend this font name to apply_rc_helvetica's chain")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--paper-pairs", action="store_true",
-                        help="Filter cells to cfg.paper_pair_keys (v0502 scope); "
+                        help="Filter cells to cfg.paper_pair_keys; "
                              "propagated to all child plotters.")
     parser.add_argument("--out-root", type=Path, default=None,
                         help="Override results root for input/output paths; "

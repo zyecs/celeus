@@ -19,7 +19,7 @@ if str(_REPO) not in sys.path:
 from celeus.paper_experiment.config import default_config_path, load_config  # noqa: E402
 from scripts.paper_experiment.compute_mae_axis import load_cell_arrays  # noqa: E402
 
-DEFAULT_OUT_ROOT = _REPO / "results" / "paper_experiments_v0502"
+DEFAULT_OUT_ROOT = _REPO / "results" / "paper_outputs"
 DEFAULT_CONFIG = default_config_path()
 
 
@@ -109,7 +109,7 @@ def family_relationship(surrogate: str, target: str) -> str:
 
 
 def rq7_cells(cfg) -> list[dict[str, str]]:
-    cells = cfg.acquisition_sweep.get("cells_v0502") or []
+    cells = cfg.acquisition_sweep.get("cells_paper") or []
     if cells:
         return [dict(c) for c in cells]
     return [

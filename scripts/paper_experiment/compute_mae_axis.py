@@ -242,7 +242,7 @@ def main():
     ap.add_argument("--out-root", type=Path, default=None,
                     help="Override results root.")
     ap.add_argument("--paper-pairs", action="store_true",
-                    help="Filter to cfg.paper_pair_keys (v0502 scope). Default: all_pairs.")
+                    help="Filter to cfg.paper_pair_keys. Default: all_pairs.")
     ap.add_argument("--axis", choices=("mae_lure", "mae_acq"), default="mae_lure",
                     help="MAE flavor: mae_lure = E|gt - hat_ell|; mae_acq = E|ell_proxy - hat_ell|.")
     args = ap.parse_args()

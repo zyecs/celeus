@@ -299,8 +299,8 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-root", type=Path, default=None,
                     help="Override results root.")
-    ap.add_argument("--cells", choices=("legacy", "v0502"), default="legacy",
-                    help="Which cell list (cfg.acquisition_sweep.cells_legacy / cells_v0502).")
+    ap.add_argument("--cells", choices=("legacy", "paper"), default="legacy",
+                    help="Which cell list (cfg.acquisition_sweep.cells_legacy / cells_paper).")
     ap.add_argument("--strategies", choices=("all", "top3"), default="all",
                     help="all = full strategy universe; top3 = curated top-3 + Oracle per loss.")
     args = ap.parse_args(argv)
@@ -315,7 +315,7 @@ def main(argv: list[str] | None = None) -> None:
         cells = cfg.acquisition_sweep["cells_legacy"]
         seeds_acq = set(cfg.acquisition_sweep["seeds"])
     else:
-        cells = cfg.acquisition_sweep["cells_v0502"]
+        cells = cfg.acquisition_sweep["cells_paper"]
         # v0502 uses the full 50-seed window from main, not the legacy 15-seed window.
         seeds_acq = set(cfg.seeds_main)
 

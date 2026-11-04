@@ -13,7 +13,7 @@ Analysis code MUST filter on ``did_stop=True`` before aggregating
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Optional
 

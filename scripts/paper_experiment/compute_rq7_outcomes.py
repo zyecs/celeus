@@ -19,7 +19,7 @@ from celeus.paper_experiment.config import default_config_path, load_config  # n
 from scripts.paper_experiment.aggregation import parse_cell_filename  # noqa: E402
 from scripts.paper_experiment.compute_rq7_predictors import rq7_cells  # noqa: E402
 
-DEFAULT_OUT_ROOT = _REPO / "results" / "paper_experiments_v0502"
+DEFAULT_OUT_ROOT = _REPO / "results" / "paper_outputs"
 DEFAULT_CONFIG = default_config_path()
 ANCHORS = (500, 1000, 1500, 2000, 2500, 3000)
 

@@ -222,7 +222,7 @@ def main(argv=None):
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--paper-pairs", action="store_true",
-                        help="Filter cells to cfg.paper_pair_keys (v0502 scope).")
+                        help="Filter cells to cfg.paper_pair_keys.")
     parser.add_argument("--out-root", type=Path, default=None,
                         help="Override results root for input/output paths.")
     args = parser.parse_args(argv)
