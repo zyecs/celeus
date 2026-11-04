@@ -14,7 +14,7 @@ _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO / "src") not in sys.path:
     sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.cell_paths import (  # noqa: E402
+from celeus.paper_experiment.cell_paths import (  # noqa: E402
     parse_acquisition_sweep_cell_filename,
     parse_beta_sweep_cell_filename,
     parse_ce_sweep_cell_filename,
@@ -23,7 +23,7 @@ from save.paper_experiment.cell_paths import (  # noqa: E402
     parse_oracle_accuracy_cell_filename,
     parse_wallclock_cell_filename,
 )
-from save.paper_experiment.cell_schema import load_cell  # noqa: E402
+from celeus.paper_experiment.cell_schema import load_cell  # noqa: E402
 
 
 _SUBDIR_PARSERS = {

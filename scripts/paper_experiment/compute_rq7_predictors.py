@@ -16,7 +16,7 @@ if str(_REPO / "src") not in sys.path:
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from save.paper_experiment.config import default_config_path, load_config  # noqa: E402
+from celeus.paper_experiment.config import default_config_path, load_config  # noqa: E402
 from scripts.paper_experiment.compute_mae_axis import load_cell_arrays  # noqa: E402
 
 DEFAULT_OUT_ROOT = _REPO / "results" / "paper_experiments_v0502"

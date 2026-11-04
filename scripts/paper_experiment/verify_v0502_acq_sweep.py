@@ -19,8 +19,8 @@ import numpy as np
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.config import load_config
-from save.paper_experiment.cell_paths import (
+from celeus.paper_experiment.config import load_config
+from celeus.paper_experiment.cell_paths import (
     acquisition_sweep_cell_path,
     acquisition_sweep_subcell_path,
 )

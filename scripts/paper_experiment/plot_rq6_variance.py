@@ -242,7 +242,7 @@ def main(argv=None):
 
     per_seed_df = pd.read_csv(per_seed_path)
     if args.paper_pairs:
-        from save.paper_experiment.config import (
+        from celeus.paper_experiment.config import (
             default_config_path as _default_config_path,
             load_config as _load_config,
         )

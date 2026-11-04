@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 import sys
 
-_TMP_CACHE = Path("/tmp/save-rq1-mpl")
+_TMP_CACHE = Path("/tmp/celeus-rq1-mpl")
 os.environ.setdefault("MPLCONFIGDIR", str(_TMP_CACHE / "mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(_TMP_CACHE / "xdg-cache"))
 
@@ -44,7 +44,7 @@ if str(_REPO / "src") not in sys.path:
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from save.paper_experiment.config import default_config_path, load_config  # noqa: E402
+from celeus.paper_experiment.config import default_config_path, load_config  # noqa: E402
 
 import rq1_efficiency_common as common  # noqa: E402
 import plot_rq1_efficiency as base  # noqa: E402

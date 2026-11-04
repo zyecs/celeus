@@ -10,7 +10,7 @@ Two-phase build:
 * Phase C: post-SLURM completion. Re-runs only the three steps skipped in
   Phase B once the v0504 acquisition-sweep cells have been merged.
 
-Routes ``SAVE_PE_CONFIG`` so all subprocess steps load the v0504 yaml
+Routes ``CELEUS_PE_CONFIG`` so all subprocess steps load the v0504 yaml
 (6 paper_pairs, 18 cells_v0502). v0502 outputs are untouched.
 
 Usage::
@@ -31,8 +31,8 @@ OUT_ROOT = _REPO / "results" / "paper_experiments_v0504"
 V0504_CONFIG = _REPO / "configs" / "paper_experiment_v0504.yaml"
 
 # Route every subprocess child's load_config() to the v0504 yaml. This is
-# the env hook added to save.paper_experiment.config.default_config_path().
-os.environ["SAVE_PE_CONFIG"] = str(V0504_CONFIG)
+# the env hook added to celeus.paper_experiment.config.default_config_path().
+os.environ["CELEUS_PE_CONFIG"] = str(V0504_CONFIG)
 
 
 def _run(cmd: list[str], **kwargs) -> None:
@@ -46,7 +46,7 @@ def _run(cmd: list[str], **kwargs) -> None:
             parts.insert(0, e)
     env["PYTHONPATH"] = ":".join(p for p in parts if p)
     # Make sure the v0504 yaml route reaches the subprocess too.
-    env.setdefault("SAVE_PE_CONFIG", str(V0504_CONFIG))
+    env.setdefault("CELEUS_PE_CONFIG", str(V0504_CONFIG))
     result = subprocess.run(cmd, env=env, **kwargs)
     if result.returncode != 0:
         sys.exit(f"step failed: {' '.join(str(c) for c in cmd)}")

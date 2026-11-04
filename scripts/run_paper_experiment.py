@@ -83,9 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     _add_src_to_path()
     args = parse_args(argv)
 
-    from save.paper_experiment.config import default_config_path, load_config
-    from save.paper_experiment import stages
-    # If the user didn't pass --config, honor SAVE_PE_CONFIG (v0504 build path).
+    from celeus.paper_experiment.config import default_config_path, load_config
+    from celeus.paper_experiment import stages
+    # If the user didn't pass --config, honor CELEUS_PE_CONFIG (v0504 build path).
     if args.config == Path("configs/paper_experiment.yaml"):
         args.config = default_config_path()
 

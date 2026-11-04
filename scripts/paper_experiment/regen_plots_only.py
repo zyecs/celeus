@@ -160,16 +160,16 @@ def main(argv=None):
         return 0
 
     # Propagate runtime overrides to subprocess plot scripts via env vars.
-    # plot_style.apply_rc_helvetica reads SAVE_PLOT_FONT;
-    # plot_style.bands_enabled() reads SAVE_PLOT_NO_BANDS;
-    # plot_style.get_runtime_pairs() reads SAVE_PLOT_PAIRS.
+    # plot_style.apply_rc_helvetica reads CELEUS_PLOT_FONT;
+    # plot_style.bands_enabled() reads CELEUS_PLOT_NO_BANDS;
+    # plot_style.get_runtime_pairs() reads CELEUS_PLOT_PAIRS.
     env = os.environ.copy()
     if args.font:
-        env["SAVE_PLOT_FONT"] = args.font
+        env["CELEUS_PLOT_FONT"] = args.font
     if args.no_bands:
-        env["SAVE_PLOT_NO_BANDS"] = "1"
+        env["CELEUS_PLOT_NO_BANDS"] = "1"
     if args.pairs:
-        env["SAVE_PLOT_PAIRS"] = args.pairs
+        env["CELEUS_PLOT_PAIRS"] = args.pairs
 
     out_root = args.out_root if args.out_root else None
     sections = list(_SECTIONS) if args.section == "all" else [args.section]

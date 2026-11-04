@@ -12,9 +12,9 @@ import numpy as np
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.cell_paths import main_cell_path  # noqa: E402
-from save.paper_experiment.cell_schema import load_cell  # noqa: E402
-from save.paper_experiment.config import load_config  # noqa: E402
+from celeus.paper_experiment.cell_paths import main_cell_path  # noqa: E402
+from celeus.paper_experiment.cell_schema import load_cell  # noqa: E402
+from celeus.paper_experiment.config import load_config  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -87,13 +87,13 @@ def main(argv: list[str] | None = None) -> int:
             all_ok = False
         for seed, r in results.items():
             # (2) coverage at every step
-            lo, hi = r.save_lo, r.save_hi
+            lo, hi = r.celeus_lo, r.celeus_hi
             bad = np.sum((lo > rn) | (hi < rn))
             if bad > 0:
                 print(f"{method} seed={seed}: miscovers R_N={rn:.4f} at {bad} steps")
                 all_ok = False
             # (3) schema shape
-            assert r.save_labels.shape == (meta.T_max,)
+            assert r.celeus_labels.shape == (meta.T_max,)
             # (5) git_commit + hostname populated
             if r.git_commit in ("", "unknown"):
                 print(f"{method} seed={seed}: git_commit missing")

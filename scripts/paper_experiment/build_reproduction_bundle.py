@@ -54,7 +54,7 @@ def main(argv=None) -> int:
     # v2: read data_root from YAML rather than hardcoded relative path.
     import sys as _sys
     _sys.path.insert(0, str(_REPO / "src"))
-    from save.paper_experiment.config import load_config
+    from celeus.paper_experiment.config import load_config
     cfg = load_config(_REPO / "configs" / "paper_experiment.yaml")
     data_root = Path(cfg.paths["data_root"])
 

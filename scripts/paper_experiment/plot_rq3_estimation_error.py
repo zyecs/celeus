@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-_TMP_CACHE = Path("/tmp/save-rq3-mpl")
+_TMP_CACHE = Path("/tmp/celeus-rq3-mpl")
 os.environ.setdefault("MPLCONFIGDIR", str(_TMP_CACHE / "mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(_TMP_CACHE / "xdg-cache"))
 
@@ -25,19 +25,19 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO / "src") not in sys.path:
     sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.cell_paths import parse_main_cell_filename  # noqa: E402
-from save.paper_experiment.cell_schema import compute_labels_to_stop, load_cell  # noqa: E402
+from celeus.paper_experiment.cell_paths import parse_main_cell_filename  # noqa: E402
+from celeus.paper_experiment.cell_schema import compute_labels_to_stop, load_cell  # noqa: E402
 
 DATASET_ORDER = ("sst2", "mmlu", "agnews")
 LOSS_ORDER = ("accuracy", "cross_entropy")
-METHOD_ORDER = ("SAVE-ADA", "Sample Mean")
+METHOD_ORDER = ("CELEUS", "Sample Mean")
 FOCUS_PAIRS = (
     ("llama3_8b", "Mixtral_8x7b"),
     ("llama3_8b", "qwen25_72b"),
     ("llama2_7b", "qwen25_72b"),
 )
 STYLE = {
-    "SAVE-ADA": {"color": "#2E5E8A", "line": "-", "stop_marker": "o", "final_marker": "s"},
+    "CELEUS": {"color": "#2E5E8A", "line": "-", "stop_marker": "o", "final_marker": "s"},
     "Sample Mean": {"color": "#C07A2C", "line": "-", "stop_marker": "D", "final_marker": "^"},
 }
 
@@ -51,15 +51,15 @@ class SeedTrajectory:
     seed: int
     t_max: int
     epsilon: float
-    save_fraction: np.ndarray
+    celeus_fraction: np.ndarray
     base_fraction: np.ndarray
-    save_abs_err: np.ndarray
+    celeus_abs_err: np.ndarray
     base_abs_err: np.ndarray
-    save_stop_fraction: float | None
+    celeus_stop_fraction: float | None
     base_stop_fraction: float | None
-    save_stop_err: float | None
+    celeus_stop_err: float | None
     base_stop_err: float | None
-    save_final_err: float
+    celeus_final_err: float
     base_final_err: float
 
 
@@ -200,14 +200,14 @@ def step_resample(
     return values[idx]
 
 
-def extract_save_stop_fraction(
-    save_labels: np.ndarray,
-    save_lo: np.ndarray,
-    save_hi: np.ndarray,
+def extract_celeus_stop_fraction(
+    celeus_labels: np.ndarray,
+    celeus_lo: np.ndarray,
+    celeus_hi: np.ndarray,
     epsilon: float,
     t_max: int,
 ) -> float | None:
-    labels_to_stop = compute_labels_to_stop(save_lo, save_hi, save_labels, epsilon=epsilon)
+    labels_to_stop = compute_labels_to_stop(celeus_lo, celeus_hi, celeus_labels, epsilon=epsilon)
     if labels_to_stop <= 0:
         return None
     return float(np.clip(labels_to_stop / float(t_max), 0.0, 1.0))
@@ -217,8 +217,8 @@ def _value_at_fraction(fractions: np.ndarray, values: np.ndarray, fraction: floa
     return float(step_resample(fractions, values, np.asarray([fraction], dtype=np.float64))[0])
 
 
-def save_midpoint_abs_error(save_lo: np.ndarray, save_hi: np.ndarray, true_risk: float) -> np.ndarray:
-    midpoint = 0.5 * (save_lo + save_hi)
+def celeus_midpoint_abs_error(celeus_lo: np.ndarray, celeus_hi: np.ndarray, true_risk: float) -> np.ndarray:
+    midpoint = 0.5 * (celeus_lo + celeus_hi)
     return np.abs(midpoint - true_risk)
 
 
@@ -243,35 +243,35 @@ def load_paired_seed_trajectories(m1_path: Path, m4_path: Path) -> list[SeedTraj
         if not np.isclose(m1_result.true_R, m4_result.true_R):
             raise ValueError(f"M1/M4 true_R mismatch for seed={seed}")
         try:
-            save_fraction, save_abs_err = _collapse_step_trajectory(
-                m1_result.save_labels,
-                save_midpoint_abs_error(m1_result.save_lo, m1_result.save_hi, m1_result.true_R),
+            celeus_fraction, celeus_abs_err = _collapse_step_trajectory(
+                m1_result.celeus_labels,
+                celeus_midpoint_abs_error(m1_result.celeus_lo, m1_result.celeus_hi, m1_result.true_R),
                 m1_meta.T_max,
             )
             base_fraction, base_abs_err = _collapse_step_trajectory(
-                m4_result.save_labels,
-                np.abs(m4_result.save_rhat - m4_result.true_R),
+                m4_result.celeus_labels,
+                np.abs(m4_result.celeus_rhat - m4_result.true_R),
                 m4_meta.T_max,
             )
         except ValueError:
             continue
 
-        save_stop_fraction = extract_save_stop_fraction(
-            m1_result.save_labels,
-            m1_result.save_lo,
-            m1_result.save_hi,
+        celeus_stop_fraction = extract_celeus_stop_fraction(
+            m1_result.celeus_labels,
+            m1_result.celeus_lo,
+            m1_result.celeus_hi,
             epsilon=m1_meta.epsilon,
             t_max=m1_meta.T_max,
         )
-        if save_stop_fraction is None:
-            save_stop_err = None
+        if celeus_stop_fraction is None:
+            celeus_stop_err = None
         else:
-            save_stop_err = _value_at_fraction(save_fraction, save_abs_err, save_stop_fraction)
+            celeus_stop_err = _value_at_fraction(celeus_fraction, celeus_abs_err, celeus_stop_fraction)
 
-        base_stop_fraction = extract_save_stop_fraction(
-            m4_result.save_labels,
-            m4_result.save_lo,
-            m4_result.save_hi,
+        base_stop_fraction = extract_celeus_stop_fraction(
+            m4_result.celeus_labels,
+            m4_result.celeus_lo,
+            m4_result.celeus_hi,
             epsilon=m4_meta.epsilon,
             t_max=m4_meta.T_max,
         )
@@ -289,15 +289,15 @@ def load_paired_seed_trajectories(m1_path: Path, m4_path: Path) -> list[SeedTraj
                 seed=int(seed),
                 t_max=m1_meta.T_max,
                 epsilon=m1_meta.epsilon,
-                save_fraction=save_fraction,
+                celeus_fraction=celeus_fraction,
                 base_fraction=base_fraction,
-                save_abs_err=save_abs_err,
+                celeus_abs_err=celeus_abs_err,
                 base_abs_err=base_abs_err,
-                save_stop_fraction=save_stop_fraction,
+                celeus_stop_fraction=celeus_stop_fraction,
                 base_stop_fraction=base_stop_fraction,
-                save_stop_err=save_stop_err,
+                celeus_stop_err=celeus_stop_err,
                 base_stop_err=base_stop_err,
-                save_final_err=float(save_abs_err[-1]),
+                celeus_final_err=float(celeus_abs_err[-1]),
                 base_final_err=float(base_abs_err[-1]),
             )
         )
@@ -319,7 +319,7 @@ def aggregate_group(
     loss = selected[0].loss
     rows: list[dict[str, object]] = []
     method_specs = (
-        ("SAVE-ADA", "save_fraction", "save_abs_err", "save_final_err", "save_stop_fraction", "save_stop_err"),
+        ("CELEUS", "celeus_fraction", "celeus_abs_err", "celeus_final_err", "celeus_stop_fraction", "celeus_stop_err"),
         ("Sample Mean", "base_fraction", "base_abs_err", "base_final_err", "base_stop_fraction", "base_stop_err"),
     )
 
@@ -394,7 +394,7 @@ def _metadata_for_loss(
     }
     stop_counts_by_dataset = {
         dataset: sum(
-            1 for t in trajectories if t.dataset == dataset and t.save_stop_fraction is not None
+            1 for t in trajectories if t.dataset == dataset and t.celeus_stop_fraction is not None
         )
         for dataset in DATASET_ORDER
     }
@@ -407,11 +407,11 @@ def _metadata_for_loss(
         "output_dir": str(output_dir),
         "method": "M1_vs_M4",
         "comparison": {
-            "save_ada": "cs_midpoint_from_save_lo_hi",
-            "sample_mean": "running_mean_from_m4_save_rhat",
+            "celeus": "cs_midpoint_from_celeus_lo_hi",
+            "sample_mean": "running_mean_from_m4_celeus_rhat",
         },
         "stopping_point_semantics": {
-            "save_ada": "own_M1_stopping_fraction",
+            "celeus": "own_M1_stopping_fraction",
             "sample_mean": "own_M4_stopping_fraction",
         },
         "grid_size": int(grid_size),
@@ -422,8 +422,8 @@ def _metadata_for_loss(
         "n_m4_cells": len(m4_cell_paths),
         "n_seed_trajectories": len(trajectories),
         "n_seed_trajectories_by_dataset": counts_by_dataset,
-        "n_save_stopping_points_total": sum(t.save_stop_fraction is not None for t in trajectories),
-        "n_save_stopping_points_by_dataset": stop_counts_by_dataset,
+        "n_celeus_stopping_points_total": sum(t.celeus_stop_fraction is not None for t in trajectories),
+        "n_celeus_stopping_points_by_dataset": stop_counts_by_dataset,
         "n_base_stopping_points_total": sum(t.base_stop_fraction is not None for t in trajectories),
         "n_base_stopping_points_by_dataset": {
             dataset: sum(
@@ -645,7 +645,7 @@ def main() -> int:
     # legacy set lacks), and intersecting collapses the visualisation.
     global FOCUS_PAIRS
     if args.paper_pairs:
-        from save.paper_experiment.config import load_config as _load_config
+        from celeus.paper_experiment.config import load_config as _load_config
         _cfg = _load_config("configs/paper_experiment.yaml")
         FOCUS_PAIRS = tuple(
             (p["surrogate"], p["target"]) for p in _cfg.paper_pairs

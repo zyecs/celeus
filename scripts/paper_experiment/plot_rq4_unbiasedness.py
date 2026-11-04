@@ -141,7 +141,7 @@ def _render_showcase(per_seed_df: pd.DataFrame, out_path: Path,
                      pair_defs: list[dict] | None = None) -> None:
     """Render rq4 showcase.pdf — 3 dataset rows × N demo pairs overlaid (LURE only).
 
-    Honors `SAVE_PLOT_PAIRS` env var via `get_runtime_pairs()` to allow
+    Honors `CELEUS_PLOT_PAIRS` env var via `get_runtime_pairs()` to allow
     `regen_plots_only.py --pairs` to restrict the rendered slots.
 
     `pair_defs` overrides the showcase pair set (used by --paper-pairs to swap
@@ -248,7 +248,7 @@ def main(argv=None):
     logger.info("loaded %d rows from %s", len(per_seed_df), per_seed_path)
 
     if args.paper_pairs:
-        from save.paper_experiment.config import (
+        from celeus.paper_experiment.config import (
             default_config_path as _default_config_path,
             load_config as _load_config,
         )

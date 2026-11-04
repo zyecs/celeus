@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from save.paper_experiment.runners import run_cereval_for_seed, run_save_method_for_seed
-from save.partition import EvaluationPool
+from celeus.paper_experiment.runners import run_cereval_for_seed, run_celeus_method_for_seed
+from celeus.partition import EvaluationPool
 
 N_POOL = 1500
 T_MAX = 1500
@@ -53,10 +53,10 @@ POOLS = {"accuracy": _accuracy_pool, "cross_entropy": _ce_pool}
 
 def _flatten(prefix: str, res) -> dict[str, np.ndarray]:
     out = {
-        f"{prefix}/method_labels": res.save_labels,
-        f"{prefix}/method_rhat": res.save_rhat,
-        f"{prefix}/method_lo": res.save_lo,
-        f"{prefix}/method_hi": res.save_hi,
+        f"{prefix}/method_labels": res.celeus_labels,
+        f"{prefix}/method_rhat": res.celeus_rhat,
+        f"{prefix}/method_lo": res.celeus_lo,
+        f"{prefix}/method_hi": res.celeus_hi,
         f"{prefix}/baseline_labels": res.base_labels,
         f"{prefix}/baseline_rhat": res.base_rhat,
         f"{prefix}/baseline_lo": res.base_lo,
@@ -75,7 +75,7 @@ def run_all_cases() -> dict[str, np.ndarray]:
         for method_id, flags in METHODS.items():
             surrogate_type = "none" if flags["uniform_acquisition"] else "remark1_strategy1"
             for seed in SEEDS:
-                res = run_save_method_for_seed(
+                res = run_celeus_method_for_seed(
                     method_id=method_id, pool=make_pool(), T_max=T_MAX, loss_type=loss,
                     beta_min=0.4, surrogate_type=surrogate_type, seed=seed,
                     **flags, **PROTOCOL,

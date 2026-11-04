@@ -39,7 +39,7 @@ if str(_REPO / "src") not in sys.path:
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from save.paper_experiment.config import default_config_path, load_config
+from celeus.paper_experiment.config import default_config_path, load_config
 
 
 DATASET_LABEL = {"sst2": "SST-2", "mmlu": "MMLU", "agnews": "AG News"}

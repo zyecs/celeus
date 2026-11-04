@@ -11,13 +11,13 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.cell_paths import (  # noqa: E402
+from celeus.paper_experiment.cell_paths import (  # noqa: E402
     acquisition_sweep_cell_path, beta_sweep_cell_path, ce_sweep_cell_path,
     hparam_sweep_cell_path, main_cell_path, oracle_accuracy_cell_path,
     wallclock_cell_path,
 )
-from save.paper_experiment.config import load_config  # noqa: E402
-from save.paper_experiment.index_maps import (  # noqa: E402
+from celeus.paper_experiment.config import load_config  # noqa: E402
+from celeus.paper_experiment.index_maps import (  # noqa: E402
     acquisition_sweep_cells, beta_sweep_cells, ce_sweep_cells,
     hparam_sweep_cells, main_cells_for_loss, oracle_accuracy_cells,
     wallclock_cells,

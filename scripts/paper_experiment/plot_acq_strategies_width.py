@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 import sys
 
-_TMP_CACHE = Path("/tmp/save-rq1-mpl")
+_TMP_CACHE = Path("/tmp/celeus-rq1-mpl")
 os.environ.setdefault("MPLCONFIGDIR", str(_TMP_CACHE / "mplconfig"))
 os.environ.setdefault("XDG_CACHE_HOME", str(_TMP_CACHE / "xdg-cache"))
 
@@ -43,11 +43,11 @@ if str(_REPO / "src") not in sys.path:
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from save.paper_experiment.config import default_config_path, load_config  # noqa: E402
-from save.paper_experiment.cell_paths import (  # noqa: E402
+from celeus.paper_experiment.config import default_config_path, load_config  # noqa: E402
+from celeus.paper_experiment.cell_paths import (  # noqa: E402
     acquisition_sweep_cell_path, main_cell_path, oracle_accuracy_cell_path,
 )
-from save.paper_experiment.cell_schema import load_cell  # noqa: E402
+from celeus.paper_experiment.cell_schema import load_cell  # noqa: E402
 
 import plot_rq1_efficiency as base  # noqa: E402
 
@@ -138,10 +138,10 @@ def _load_widths_for_strategy(
             for _seed, r in results.items():
                 if not r.did_stop:
                     continue
-                # M1/M3/oracle/sweep cells store save_labels/save_lo/save_hi.
-                lo = getattr(r, "save_lo", None)
-                hi = getattr(r, "save_hi", None)
-                labels = getattr(r, "save_labels", None)
+                # M1/M3/oracle/sweep cells store celeus_labels/celeus_lo/celeus_hi.
+                lo = getattr(r, "celeus_lo", None)
+                hi = getattr(r, "celeus_hi", None)
+                labels = getattr(r, "celeus_labels", None)
                 if labels is None or lo is None or hi is None:
                     continue
                 labels = np.asarray(labels, dtype=np.int64)

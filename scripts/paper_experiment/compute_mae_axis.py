@@ -17,8 +17,8 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO / "src") not in sys.path:
     sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.config import default_config_path, load_config  # noqa: E402
-from save.paper_experiment.pool_loader import load_pool_for_cell  # noqa: E402
+from celeus.paper_experiment.config import default_config_path, load_config  # noqa: E402
+from celeus.paper_experiment.pool_loader import load_pool_for_cell  # noqa: E402
 
 LOG = logging.getLogger(__name__)
 

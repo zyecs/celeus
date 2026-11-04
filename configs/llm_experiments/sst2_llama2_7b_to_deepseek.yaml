@@ -5,7 +5,7 @@ target_model: deepseek_67b
 surrogate_model: llama2_7b
 surrogate_type: auto
 
-save_config:
+celeus_config:
   K: 1
   alpha_1: 0.025
   alpha_2: 0.025

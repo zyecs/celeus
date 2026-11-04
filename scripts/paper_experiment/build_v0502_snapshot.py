@@ -24,7 +24,7 @@ import pandas as pd
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.config import default_config_path, load_config
+from celeus.paper_experiment.config import default_config_path, load_config
 
 
 def _parse_cell_path(path: str) -> tuple[str, str, str, str, str]:

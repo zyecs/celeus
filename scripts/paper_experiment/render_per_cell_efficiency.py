@@ -32,7 +32,7 @@ if str(_REPO / "src") not in sys.path:
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from save.paper_experiment.config import default_config_path, load_config
+from celeus.paper_experiment.config import default_config_path, load_config
 
 
 DATASET_LABEL = {"sst2": "SST-2", "mmlu": "MMLU", "agnews": "AG News"}
@@ -41,8 +41,8 @@ LOSS_ORDER = ("accuracy", "cross_entropy")
 LOSS_LABEL = {"accuracy": "Accuracy", "cross_entropy": "Cross-entropy"}
 METHOD_ORDER = ("M1", "M3", "M4")
 METHOD_LABEL = {
-    "M1": r"\textsc{SAVE-Ada}",
-    "M3": r"\textsc{SAVE-Unif}",
+    "M1": r"\textsc{Celeus}",
+    "M3": r"\textsc{Celeus-Unif}",
     "M4": r"\textsc{IID+e}",
 }
 
@@ -79,7 +79,7 @@ def build_per_cell_table(df: pd.DataFrame) -> str:
         r"three certified methods across the four main pairs of "
         r"Tab.~(\ref{tab:setup-pairs}). Median is taken across the 50 main "
         r"seeds; cells where every seed exceeds $t_{\max}$ print as "
-        r"$t_{\max}$. \textsc{SAVE-Ada} (M1) tightens to $\epsilon$ in fewer "
+        r"$t_{\max}$. \textsc{Celeus} (M1) tightens to $\epsilon$ in fewer "
         r"labels than \textsc{IID+e} (M4) on every cell, with the surrogate-on "
         r"(M1) vs.\ surrogate-off (M3) gap widening on the higher-$\rho$ cells.}",
         r"\label{tab:app-per-cell-efficiency}",

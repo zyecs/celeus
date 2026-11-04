@@ -30,9 +30,9 @@ if str(_REPO / "src") not in sys.path:
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from save.paper_experiment.config import default_config_path, load_config
-from save.paper_experiment.cell_paths import main_cell_path
-from save.paper_experiment.cell_schema import load_cell
+from celeus.paper_experiment.config import default_config_path, load_config
+from celeus.paper_experiment.cell_paths import main_cell_path
+from celeus.paper_experiment.cell_schema import load_cell
 from scripts.paper_experiment.plot_style import apply_rc_helvetica
 
 
@@ -55,7 +55,7 @@ def _load_method_curves(
     """Aggregate width-vs-labels across pairs and seeds for one (method, loss, dataset).
 
     Loads ``trajectories/main/cell__{method}__{dataset}__{surrogate}__{target}__{loss}.npz``
-    for each pair, extracts ``(save_labels, save_lo, save_hi)`` per seed,
+    for each pair, extracts ``(celeus_labels, celeus_lo, celeus_hi)`` per seed,
     computes ``width = hi - lo`` and returns
     ``(label_grid, mean_width, lo_width, hi_width)`` where the bands are
     the 5th / 95th percentiles across the (pair, seed) population.
@@ -78,8 +78,8 @@ def _load_method_curves(
             continue
         _meta, results = load_cell(path)
         for _seed, r in results.items():
-            labels = np.asarray(r.save_labels, dtype=np.int64)
-            widths = np.asarray(r.save_hi - r.save_lo, dtype=np.float64)
+            labels = np.asarray(r.celeus_labels, dtype=np.int64)
+            widths = np.asarray(r.celeus_hi - r.celeus_lo, dtype=np.float64)
             valid = (widths >= 0) & np.isfinite(widths) & (labels >= 0)
             all_labels.append(labels[valid])
             all_widths.append(widths[valid])

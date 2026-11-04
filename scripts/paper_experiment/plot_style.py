@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 METHOD_STYLE = {
-    "M1": {"label": "SAVE-ADA",          "color": "#d62728", "linestyle": "-",  "marker": "o"},
-    "M2": {"label": "SAVE-fixed",        "color": "#d62728", "linestyle": "--", "marker": "s"},
-    "M3": {"label": "save-no-surrogate", "color": "#7f7f7f", "linestyle": ":",  "marker": "^"},
+    "M1": {"label": "CELEUS",          "color": "#d62728", "linestyle": "-",  "marker": "o"},
+    "M2": {"label": "CELEUS-fixed",        "color": "#d62728", "linestyle": "--", "marker": "s"},
+    "M3": {"label": "CELEUS-no-surrogate", "color": "#7f7f7f", "linestyle": ":",  "marker": "^"},
     "M4": {"label": "naive e-value",     "color": "#000000", "linestyle": "--", "marker": "x"},
     "M5": {"label": "Cer-Eval",          "color": "#1f77b4", "linestyle": "-",  "marker": "D"},
 }
@@ -96,12 +96,12 @@ _HELVETICA_FALLBACK = [
 def apply_rc_helvetica():
     """Apply Nature-style rcparams using Helvetica-family font.
 
-    Resolves the first available font from `[$SAVE_PLOT_FONT?] + _HELVETICA_FALLBACK`
+    Resolves the first available font from `[$CELEUS_PLOT_FONT?] + _HELVETICA_FALLBACK`
     and applies 7pt body / 6pt ticks / 0.6pt axes / spines top+right off / no grid /
     pdf.fonttype=42 for editor-editable PDFs / 600dpi save.
 
     `regen_plots_only.py --font "Liberation Sans"` propagates the choice via
-    the `SAVE_PLOT_FONT` environment variable, which we prepend to the chain.
+    the `CELEUS_PLOT_FONT` environment variable, which we prepend to the chain.
 
     Logs the resolved font name at INFO level so authors notice if matplotlib's
     font cache resolves differently than expected.
@@ -112,13 +112,13 @@ def apply_rc_helvetica():
     import matplotlib as mpl
     from matplotlib import font_manager
 
-    user_font = os.environ.get("SAVE_PLOT_FONT")
+    user_font = os.environ.get("CELEUS_PLOT_FONT")
     chain = ([user_font] if user_font else []) + _HELVETICA_FALLBACK
     available = {f.name for f in font_manager.fontManager.ttflist}
     family = next((c for c in chain if c in available), "DejaVu Sans")
     chain_pos = chain.index(family) + 1 if family in chain else len(chain)
     _log.info(
-        "[plot_style] font resolved to: %s (chain position %d of %d, SAVE_PLOT_FONT=%r)",
+        "[plot_style] font resolved to: %s (chain position %d of %d, CELEUS_PLOT_FONT=%r)",
         family, chain_pos, len(chain), user_font,
     )
 
@@ -194,20 +194,20 @@ def finalize_panel(ax, *, dataset: str = "", ylabel=None,
 # environment variables; plot scripts and apply_rc_helvetica honour them.
 
 def bands_enabled() -> bool:
-    """Return False iff `SAVE_PLOT_NO_BANDS` is truthy ('1', 'true', etc.)."""
+    """Return False iff `CELEUS_PLOT_NO_BANDS` is truthy ('1', 'true', etc.)."""
     import os
-    return os.environ.get("SAVE_PLOT_NO_BANDS", "").lower() not in {"1", "true", "yes"}
+    return os.environ.get("CELEUS_PLOT_NO_BANDS", "").lower() not in {"1", "true", "yes"}
 
 
 def get_runtime_pairs(default_pairs: list[dict] = PAIR_DEFS) -> list[dict]:
-    """If `SAVE_PLOT_PAIRS` env var is set (comma-separated slot names),
+    """If `CELEUS_PLOT_PAIRS` env var is set (comma-separated slot names),
     return the subset of `default_pairs` whose `slot` is in that set;
     otherwise return all `default_pairs`.
 
     Slot names match `PAIR_DEFS[*]['slot']`: cross_arch / weak / strong.
     """
     import os
-    spec = os.environ.get("SAVE_PLOT_PAIRS", "").strip()
+    spec = os.environ.get("CELEUS_PLOT_PAIRS", "").strip()
     if not spec:
         return list(default_pairs)
     wanted = {s.strip() for s in spec.split(",") if s.strip()}

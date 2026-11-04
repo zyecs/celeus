@@ -19,7 +19,7 @@ def _run(cmd: list[str], **kwargs) -> None:
     print(f"\n>>> {' '.join(str(c) for c in cmd)}")
     # Ensure PYTHONPATH includes:
     #   - repo root (for `from scripts.paper_experiment.X import ...`)
-    #   - repo/src (for `from save.paper_experiment.X import ...`)
+    #   - repo/src (for `from celeus.paper_experiment.X import ...`)
     import os
     env = kwargs.pop("env", None) or os.environ.copy()
     existing = env.get("PYTHONPATH", "")

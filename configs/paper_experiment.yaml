@@ -73,7 +73,7 @@ protocol:
 
 # Method-specific parameters (spec §2)
 methods:
-  M1:  # SAVE-ADA
+  M1:  # CELEUS
     uniform_acquisition: false
     adaptive_bounds: true
     surrogate_type_accuracy: remark2_strategy4
@@ -81,7 +81,7 @@ methods:
     beta_min_accuracy: 0.4
     beta_min_ce: null                 # filled by ce_sweep_winner.json
     skip_cereval: true                # M5 is a separate method id
-  M2:  # SAVE-fixed
+  M2:  # CELEUS-fixed
     uniform_acquisition: false
     adaptive_bounds: false
     surrogate_type_accuracy: remark2_strategy4
@@ -89,7 +89,7 @@ methods:
     beta_min_accuracy: 0.4
     beta_min_ce: null
     skip_cereval: true
-  M3:  # save-no-surrogate
+  M3:  # CELEUS-no-surrogate
     uniform_acquisition: true
     adaptive_bounds: true
     surrogate_type_accuracy: none
@@ -248,7 +248,7 @@ hparam_sweep:
 # Wallclock stage (§6.5 item #5, locked in Task 9).
 # Cer-Eval per-round timing on 4 cells x 5 seeds (accuracy-only). Pairs with
 # Cer-Eval's existing summary.csv elapsed_seconds + new round_times array,
-# so the paper's compute-cost plot can show M5 alongside SAVE/IID.
+# so the paper's compute-cost plot can show M5 alongside CELEUS/IID.
 # 4 cells x 5 seeds x 1 chunk-each = 20 SLURM tasks at chunk_size=1
 # (Cer-Eval is too slow for chunks of 5 — see stage0_cereval_fresh.slurm).
 wallclock:

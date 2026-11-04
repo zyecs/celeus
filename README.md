@@ -43,10 +43,10 @@ MMLU, and AG-News) are **not** shipped with the code. Two equivalent ways to
 register their location:
 
 1. Set `paths.data_root` in your config (see `configs/paper_experiment.yaml`).
-2. Export `SAVE_DATA_ROOT=/abs/path/to/data` before invoking the runner.
+2. Export `CELEUS_DATA_ROOT=/abs/path/to/data` before invoking the runner.
 
 Each pool is consumed as a `.npz` archive following the schema in
-`src/save/paper_experiment/pool_loader.py`. Reviewer instructions for obtaining
+`src/celeus/paper_experiment/pool_loader.py`. Reviewer instructions for obtaining
 the archives are in the supplementary material; the loader fails fast with a
 descriptive error if any expected file is missing.
 
@@ -117,21 +117,21 @@ across cells and seed chunks.
 
 | Module                          | Paper section                              |
 |---------------------------------|--------------------------------------------|
-| `src/save/core/estimator.py`    | E-process estimator (§3, Alg. 1)            |
-| `src/save/core/confidence.py`   | Anytime-valid CS construction (§3.2)        |
-| `src/save/inference/`           | Hoeffding / Bernstein / bootstrap baselines (§4) |
-| `src/save/acquisition/`         | Acquisition functions: uniform, residual magnitude / variance, self / surrogate entropy (§5, Remarks 1–2) |
-| `src/save/allocation/`          | Stratum allocation rules: uniform, proportional, Neyman (§5.3) |
-| `src/save/surrogate*.py`        | Surrogate scoring under Strategies S1–S5 (§5.1) |
-| `src/save/baselines/cereval.py` | Cer-Eval reproduction (§6, M5)              |
-| `src/save/baselines/evalue.py`  | Naive e-value baseline (§6, M4)             |
-| `src/save/paper_experiment/`    | Experiment harness, RNG streams, cell schema |
+| `src/celeus/core/estimator.py`    | E-process estimator (§3, Alg. 1)            |
+| `src/celeus/core/confidence.py`   | Anytime-valid CS construction (§3.2)        |
+| `src/celeus/inference/`           | Hoeffding / Bernstein / bootstrap baselines (§4) |
+| `src/celeus/acquisition/`         | Acquisition functions: uniform, residual magnitude / variance, self / surrogate entropy (§5, Remarks 1–2) |
+| `src/celeus/allocation/`          | Stratum allocation rules: uniform, proportional, Neyman (§5.3) |
+| `src/celeus/surrogate*.py`        | Surrogate scoring under Strategies S1–S5 (§5.1) |
+| `src/celeus/baselines/cereval.py` | Cer-Eval reproduction (§6, M5)              |
+| `src/celeus/baselines/evalue.py`  | Naive e-value baseline (§6, M4)             |
+| `src/celeus/paper_experiment/`    | Experiment harness, RNG streams, cell schema |
 
 ## Repository layout
 
 ```
 configs/                          # YAML configs (paper + LLM-pair experiments)
-src/save/                         # estimator, baselines, harness (importable as `save`)
+src/celeus/                         # estimator, baselines, harness (importable as `save`)
 scripts/run_paper_experiment.py   # single CLI entry-point for all stages
 scripts/paper_experiment/         # plot, render, build, verify, compute scripts
 ```
@@ -150,7 +150,7 @@ the config and pass `--config path/to/your.yaml`.
 
 Each (cell × seed) trajectory uses an independent `numpy.random.Generator`
 seeded by `(seed_main, dataset_id, surrogate_id, target_id, loss)` via
-`src/save/paper_experiment/rng_streams.py`. Trajectories are bit-reproducible
+`src/celeus/paper_experiment/rng_streams.py`. Trajectories are bit-reproducible
 on a fixed CPU+BLAS combination. Numerical drift across BLAS implementations
 is bounded by 1e-6 in the reported metrics.
 

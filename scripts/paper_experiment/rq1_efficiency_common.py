@@ -12,12 +12,12 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO / "src") not in sys.path:
     sys.path.insert(0, str(_REPO / "src"))
 
-from save.paper_experiment.cell_paths import (  # noqa: E402
+from celeus.paper_experiment.cell_paths import (  # noqa: E402
     main_cell_path,
     oracle_accuracy_cell_path,
 )
-from save.paper_experiment.cell_schema import load_cell  # noqa: E402
-from save.paper_experiment.index_maps import (  # noqa: E402
+from celeus.paper_experiment.cell_schema import load_cell  # noqa: E402
+from celeus.paper_experiment.index_maps import (  # noqa: E402
     chunked_assignments,
     main_cells_for_loss,
     oracle_accuracy_cells,
@@ -302,11 +302,11 @@ def status_to_dict(status: SelectedCellStatus) -> dict[str, object]:
 def _arrays_for_method(result, method: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if method == "M4":
         return result.base_labels, result.base_lo, result.base_hi
-    # M5 (Cer-Eval) writes save_* and base_* to identical arrays in
-    # run_cereval_for_seed (src/save/paper_experiment/runners.py:207-209), so
-    # reading save_* keeps M5 in the same branch as M1/ORACLE_ACC.
+    # M5 (Cer-Eval) writes celeus_* and base_* to identical arrays in
+    # run_cereval_for_seed (src/celeus/paper_experiment/runners.py:207-209), so
+    # reading celeus_* keeps M5 in the same branch as M1/ORACLE_ACC.
     if method in {"M1", "M3", "ORACLE_ACC", "M5"}:
-        return result.save_labels, result.save_lo, result.save_hi
+        return result.celeus_labels, result.celeus_lo, result.celeus_hi
     raise ValueError(f"unsupported method: {method!r}")
 
 
@@ -545,7 +545,7 @@ def _cereval_merge_index(
     """Locate the merge-cells index for an M5 cell.
 
     The merge-cells stage iterates targets in this order
-    (``src/save/paper_experiment/stages.py:run_merge_cells``, function spans
+    (``src/celeus/paper_experiment/stages.py:run_merge_cells``, function spans
     lines 612-676; target-construction loop at lines 624-630):
 
         for loss in cfg.losses:

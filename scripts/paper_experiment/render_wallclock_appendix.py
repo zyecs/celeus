@@ -1,10 +1,10 @@
 """Render wall-clock appendix (v0504-compatible).
 
 Produces ``<out_root>/wallclock_appendix/tab_per_round.tex``: a 2-method
-comparison (SAVE-ADA / IID+EValue) x N wallclock cells, listing
+comparison (CELEUS / IID+EValue) x N wallclock cells, listing
 seconds-per-round.
 
-* SAVE-ADA / IID+EValue per-round = ``elapsed_seconds / labels_to_stop``
+* CELEUS / IID+EValue per-round = ``elapsed_seconds / labels_to_stop``
   averaged across seeds (rows pulled from summary.csv; M1 / M4; the
   N wallclock cells x cfg.wallclock['seeds']).
 
@@ -32,18 +32,18 @@ if str(_REPO / "src") not in sys.path:
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from save.paper_experiment.config import default_config_path, load_config
+from celeus.paper_experiment.config import default_config_path, load_config
 
 
 METHOD_LABEL = {
-    "M1": "SAVE-ADA",
+    "M1": "CELEUS",
     "M4": "IID+EValue",
 }
 
 
-def _save_per_round(summary: pd.DataFrame, *, method: str, cell: dict,
+def _per_round_seconds(summary: pd.DataFrame, *, method: str, cell: dict,
                     seeds: list[int], loss: str) -> float:
-    """Mean per-round wall time for SAVE-ADA / IID+EValue (one cell, k seeds).
+    """Mean per-round wall time for CELEUS / IID+EValue (one cell, k seeds).
 
     Per-seed per-round = ``elapsed_seconds / labels_to_stop``. Seeds
     that didn't stop (labels_to_stop <= 0) are dropped before averaging.
@@ -68,7 +68,7 @@ def _save_per_round(summary: pd.DataFrame, *, method: str, cell: dict,
 
 
 def build_per_round_table(summary: pd.DataFrame, cfg) -> str:
-    """2-method (SAVE / IID) x N-cell per-round seconds table."""
+    """2-method (CELEUS / IID) x N-cell per-round seconds table."""
     cells = cfg.wallclock["cells"]
     seeds = list(cfg.wallclock["seeds"])
     loss = cfg.wallclock.get("loss", "accuracy")
@@ -87,7 +87,7 @@ def build_per_round_table(summary: pd.DataFrame, cfg) -> str:
     for method in ("M1", "M4"):
         cells_str: list[str] = []
         for cell in cells:
-            v = _save_per_round(
+            v = _per_round_seconds(
                 summary, method=method, cell=cell, seeds=seeds, loss=loss,
             )
             cells_str.append("--" if not np.isfinite(v) else f"{v:.4f}")

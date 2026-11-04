@@ -292,7 +292,7 @@ def per_pair_filter(
     Depends on parse_cell_filename to resolve (surrogate, target) from
     the `cell` column. Returns an empty DataFrame (with the annotation
     columns present) when pair_defs is empty or no rows match — needed
-    so that `get_runtime_pairs()` returning [] (unknown SAVE_PLOT_PAIRS
+    so that `get_runtime_pairs()` returning [] (unknown CELEUS_PLOT_PAIRS
     slot) does not crash showcase rendering.
     """
     annotated = _annotate_dataset_pair(per_seed_df)
@@ -305,7 +305,7 @@ def per_pair_filter(
         for p in pair_defs
     }
     if not pair_lookup:
-        # SAVE_PLOT_PAIRS filtered to an unknown slot — return empty DF
+        # CELEUS_PLOT_PAIRS filtered to an unknown slot — return empty DF
         # with the expected annotation columns.
         empty = annotated.iloc[0:0].copy()
         for col in ("pair_slot", "pair_label", "pair_color"):

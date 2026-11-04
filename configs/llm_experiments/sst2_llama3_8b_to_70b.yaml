@@ -4,7 +4,7 @@ target_model: llama3_70b
 surrogate_model: llama3_8b
 surrogate_type: auto
 
-save_config:
+celeus_config:
   K: 1
   alpha_1: 0.025
   alpha_2: 0.025
