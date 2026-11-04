@@ -1,161 +1,156 @@
 # CELEUS: Certifiable and Efficient LLM Evaluation via E-Processes
 
-Reference implementation accompanying the NeurIPS 2026 paper *CELEUS: Certifiable and Efficient LLM Evaluation via E-Processes*.
+Code for the NeurIPS 2026 paper *CELEUS: Certifiable and Efficient LLM Evaluation via E-Processes*.
 
-> **Note on package name.** The Python package is imported as `save` for
-> historical reasons. All exposed APIs, CLI flags, and config keys retain that
-> namespace; the project is referred to as **CELEUS** throughout the paper.
+CELEUS evaluates an LLM on a fixed pool of examples by revealing target losses one at a time. It samples
+examples with an uncertainty-guided rule, corrects a cheap surrogate score with the revealed losses, and
+maintains an anytime-valid e-process confidence interval for the pool risk. Evaluation stops once the
+interval is narrower than a target width.
 
 ## Installation
 
-Python ≥ 3.10 is required. From the repository root:
+Python 3.10 or later. From the repository root:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
+pip install pandas            # used by the figure and table scripts
 ```
 
-Runtime dependencies (`numpy`, `scipy`, `pyyaml`, `torch`, `matplotlib`,
-`pytest`) are pinned in `pyproject.toml`. No GPU is required for the estimator
-or the analysis pipeline; surrogate scoring assumes pre-computed logits stored
-on disk (see **Data** below).
+The experiment harness needs NumPy 1.25 or later (it uses `numpy.random.Generator.spawn`).
+No GPU is needed: the method and the analysis run on CPU from precomputed model outputs.
 
-## Quick start (smoke test)
-
-After installation, the `smoke` stage runs a single (dataset × pair × loss)
-cell across four methods with three seeds and verifies that the saved
-trajectories satisfy the protocol invariants:
+Run the tests:
 
 ```bash
-python scripts/run_paper_experiment.py \
-    --stage smoke \
-    --config configs/paper_experiment.yaml
-python scripts/paper_experiment/verify_smoke.py
+pytest tests
 ```
 
-Expected runtime: ~5 minutes on a single CPU core. A passing smoke test
-indicates that the install, data path, and YAML schema are all correct.
+`tests/regression` replays every method on fixed synthetic pools and compares the trajectories bit for bit
+with a stored fixture. `tests/test_smoke_stage.py` runs the `smoke` stage end to end on a synthetic data root.
 
 ## Data
 
-The pool fixtures (target / surrogate logits and ground-truth labels for SST-2,
-MMLU, and AG-News) are **not** shipped with the code. Two equivalent ways to
-register their location:
+Model outputs are not included in this repository. The loader expects PyTorch tensors in this layout:
 
-1. Set `paths.data_root` in your config (see `configs/paper_experiment.yaml`).
-2. Export `CELEUS_DATA_ROOT=/abs/path/to/data` before invoking the runner.
+```
+<data_root>/<dataset>/all_set_targets.pt                                 # integer labels
+<data_root>/<dataset>/<model>/all_set_scores.pt                          # logits, shape (N, C)
+<data_root>/<dataset>/<model>/all_set_per_sample_accuracy.pt             # 0/1 correctness, shape (N,)
+<data_root>/<dataset>/<model>/all_set_per_sample_cross_entropy_loss.pt   # shape (N,)
+<data_root>/<dataset>/<model>/all_set_embeddings_layerm2_last.pt         # only for Cer-Eval
+```
 
-Each pool is consumed as a `.npz` archive following the schema in
-`src/celeus/paper_experiment/pool_loader.py`. Reviewer instructions for obtaining
-the archives are in the supplementary material; the loader fails fast with a
-descriptive error if any expected file is missing.
+Datasets are `sst2`, `mmlu` and `agnews`. Model directories are `llama2_7b`, `llama3_8b`, `llama3_70b`,
+`Mixtral_8x7b`, `deepseek_67b` and `qwen25_72b`. Set `paths.data_root` in `configs/paper_experiment.yaml`
+(default `./data`); `celeus.analysis.replay` reads `CELEUS_DATA_ROOT` instead.
+
+## Quick start
+
+The smoke stage runs one dataset and model pair (SST-2, Llama-2-7B to Mixtral-8x7B) for the four methods
+M1 to M4 with three seeds. Each `--index` is one method:
+
+```bash
+for i in 0 1 2 3; do
+    python scripts/run_paper_experiment.py --stage smoke --index $i
+done
+python scripts/paper_experiment/verify_smoke.py
+```
+
+To use the method on your own losses, see `celeus.benchmark.run_benchmark` and
+`celeus.paper_experiment.runners.run_celeus_method_for_seed`; `tests/regression/cases.py` shows a minimal call
+on a synthetic pool.
+
+## Methods
+
+| ID | Name in the paper | Setting |
+|----|-------------------|---------|
+| M1 | CELEUS | surrogate correction, uncertainty-guided sampling, per-round scaling bounds |
+| M2 | CELEUS with fixed scaling bounds | as M1 with one global pair of bounds |
+| M3 | CELEUS without surrogate | surrogate set to zero, uniform sampling |
+| M4 | E-value baseline | uniform sampling, plain e-process |
+| M5 | Cer-Eval | baseline of Wang et al. (2025) |
+
+All settings are in `configs/paper_experiment.yaml`. Code reads parameters from this file; to change the
+protocol, copy it and pass `--config path/to/copy.yaml`.
 
 ## Reproducing the paper
 
-Every paper artefact is produced by `scripts/run_paper_experiment.py --stage X`
-followed by an analysis script under `scripts/paper_experiment/`. The mapping
-below is exact; figure numbers refer to the camera-ready manuscript layout.
-
-| Paper artefact                           | Stage(s)                               | Analysis script                                       |
-|------------------------------------------|----------------------------------------|-------------------------------------------------------|
-| Pool-Hoeffding floor table (§3)          | `compute-rn`                           | `render_mae_axis.py`                                  |
-| RQ1 — sample-efficiency at the stop time | `main-accuracy`, `main-ce`             | `plot_rq1_efficiency.py`, `render_per_cell_efficiency.py` |
-| RQ3 — estimation error vs. budget        | `main-accuracy`, `main-ce`             | `plot_rq3_estimation_error.py`                        |
-| RQ4 — unbiasedness of the e-estimator    | `main-accuracy`, `main-ce`             | `plot_rq4_unbiasedness.py`                            |
-| RQ5 — signal MSE under the deployed acq. | `main-accuracy`, `main-ce`             | `plot_rq5_signal_mse.py`                              |
-| RQ6 — variance reduction vs. baselines   | `main-accuracy`, `main-ce`             | `plot_rq6_variance.py`                                |
-| RQ7 — complementarity of components      | `main-accuracy`                        | `compute_rq7_{predictors,outcomes}.py`, `plot_rq7_complementarity.py` |
-| Cross-entropy strategy selection (App.)  | `ce-sweep`                             | `render_ce_appendix.py`                               |
-| Acquisition-strategy ablation (App.)     | `acquisition-sweep`                    | `plot_acq_strategies_width.py`, `render_acquisition_appendix.py` |
-| β-floor sensitivity (App.)               | `beta-sweep`                           | `render_beta_appendix.py`                             |
-| Hyper-parameter sensitivity (App.)       | `hparam-sweep`                         | `render_hparam_appendix.py`                           |
-| Wall-clock comparison (App.)             | `wallclock`                            | `render_wallclock_appendix.py`                        |
-| Surrogate on/off ablation (App.)         | `main-accuracy`                        | `render_surrogate_onoff.py`                           |
-
-A typical end-to-end reproduction is:
+Experiments are split into cells (dataset, model pair, loss, method) and seed chunks so that each
+`--index` can run as one SLURM array task. `--dry-run` prints the assignment without running it.
 
 ```bash
-# 1. Pre-flight checks
-python scripts/run_paper_experiment.py --stage disk-audit  --config configs/paper_experiment.yaml
-python scripts/run_paper_experiment.py --stage compute-rn  --config configs/paper_experiment.yaml
-
-# 2. Strategy selection on cross-entropy (writes ce_sweep_winner.json)
-python scripts/run_paper_experiment.py --stage ce-sweep    --config configs/paper_experiment.yaml
-
-# 3. Main campaign
-python scripts/run_paper_experiment.py --stage main-accuracy --config configs/paper_experiment.yaml
-python scripts/run_paper_experiment.py --stage main-ce       --config configs/paper_experiment.yaml
-
-# 4. Ablations
-python scripts/run_paper_experiment.py --stage beta-sweep        --config configs/paper_experiment.yaml
-python scripts/run_paper_experiment.py --stage acquisition-sweep --config configs/paper_experiment.yaml
-python scripts/run_paper_experiment.py --stage hparam-sweep      --config configs/paper_experiment.yaml
-python scripts/run_paper_experiment.py --stage wallclock         --config configs/paper_experiment.yaml
-
-# 5. Aggregate and analyse
-python scripts/run_paper_experiment.py --stage merge-cells --config configs/paper_experiment.yaml
-python scripts/run_paper_experiment.py --stage analyze     --config configs/paper_experiment.yaml
+CFG=configs/paper_experiment.yaml
+python scripts/run_paper_experiment.py --stage disk-audit --config $CFG
+python scripts/run_paper_experiment.py --stage compute-rn --config $CFG
+python scripts/run_paper_experiment.py --stage ce-sweep   --config $CFG --index <i>   # writes ce_sweep_winner.json
+python scripts/run_paper_experiment.py --stage main-accuracy --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage main-ce       --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage oracle-accuracy --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage cereval-fresh --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage beta-sweep    --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage hparam-sweep  --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage wallclock     --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage acquisition-sweep --loss accuracy --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage paper-acq-sweep   --loss accuracy --config $CFG --index <i>
+python scripts/run_paper_experiment.py --stage merge-cells           --config $CFG
+python scripts/run_paper_experiment.py --stage merge-oracle-accuracy --config $CFG
+python scripts/paper_experiment/build_paper_outputs.py                     # main figures and tables
+python scripts/paper_experiment/build_paper_outputs.py --part acquisition  # acquisition appendix
 ```
 
-The `merge-cells` and `analyze` stages depend only on on-disk trajectories, so
-the campaign can be parallelised across (cell × seed-chunk) tasks and merged
-afterwards. Reproduction bundles for each figure can be exported with
-`scripts/paper_experiment/build_reproduction_bundle.py`.
+Run a stage without `--index` to print how many tasks it has. Trajectories are written to
+`results/paper_experiment/`; figures and tables to `results/paper_outputs/`.
 
-### Hardware and wall-clock budget
+| Paper output | Stages | Script (`scripts/paper_experiment/`) |
+|---|---|---|
+| Width vs. evaluated samples, 0-1 loss (main text) | `main-accuracy`, `oracle-accuracy` | `run_rq1_efficiency.py` |
+| Bias, signal MSE and variance (main text) | `main-accuracy`, `oracle-accuracy` | `regen_plots_only.py`, `plot_rq4_rq5_rq6_combined.py` |
+| Width vs. evaluated samples, cross-entropy (App.) | `ce-sweep`, `main-ce` | `run_rq1_efficiency.py --loss cross_entropy` |
+| Coverage and samples-to-width, cross-entropy (App.) | `ce-sweep`, `main-ce` | `render_ce_appendix.py` |
+| Acquisition-strategy comparison (App.) | `acquisition-sweep`, `paper-acq-sweep` | `render_acquisition_appendix.py`, `plot_acq_strategies_width.py` |
+| Sensitivity to β (App., Figure 6) | `beta-sweep` | `render_beta_appendix.py` |
+| Hyperparameter sensitivity (App., Table 8) | `hparam-sweep` | `render_hparam_appendix.py` |
+| Per-round wall-clock cost (App., Table 9) | `wallclock` | `render_wallclock_appendix.py` |
+| Width per model pair (App.) | `main-accuracy` | `plot_per_pair_efficiency.py` |
+| Per-cell results and surrogate on/off (App.) | `main-accuracy`, `main-ce` | `render_per_cell_efficiency.py`, `render_per_cell_mechanism.py`, `render_surrogate_onoff.py` |
+| Surrogate and acquisition complementarity (App.) | `main-accuracy` | `compute_rq7_predictors.py`, `compute_rq7_outcomes.py`, `plot_rq7_complementarity.py` |
 
-The estimator and analysis pipeline are CPU-only. The compared methods are
-M1 (CELEUS, adaptive bounds + surrogate), M3 (CELEUS, no surrogate), M4 (naive
-e-value baseline), and M5 (Cer-Eval baseline); per-trajectory wall-clock varies
-by method, and Cer-Eval (M5) dominates total cost.
-
-The full paper campaign comprises ≈ 50 seeds × {accuracy, CE} × 30 cells ×
-4 methods. Trajectories are independent and the harness can be parallelised
-across cells and seed chunks.
-
-## Method overview (code ↔ paper)
-
-| Module                          | Paper section                              |
-|---------------------------------|--------------------------------------------|
-| `src/celeus/core/estimator.py`    | E-process estimator (§3, Alg. 1)            |
-| `src/celeus/core/confidence.py`   | Anytime-valid CS construction (§3.2)        |
-| `src/celeus/inference/`           | Hoeffding / Bernstein / bootstrap baselines (§4) |
-| `src/celeus/acquisition/`         | Acquisition functions: uniform, residual magnitude / variance, self / surrogate entropy (§5, Remarks 1–2) |
-| `src/celeus/allocation/`          | Stratum allocation rules: uniform, proportional, Neyman (§5.3) |
-| `src/celeus/surrogate*.py`        | Surrogate scoring under Strategies S1–S5 (§5.1) |
-| `src/celeus/baselines/cereval.py` | Cer-Eval reproduction (§6, M5)              |
-| `src/celeus/baselines/evalue.py`  | Naive e-value baseline (§6, M4)             |
-| `src/celeus/paper_experiment/`    | Experiment harness, RNG streams, cell schema |
+`build_paper_outputs.py` runs all of these in order. To run one script on its own, start it from the
+repository root with `PYTHONPATH=.:src`. Not in this repository: the synthetic experiment of
+Table 1 (left), the open-ended safety evaluation (App. L.1) and the break-even timing study (App. L.3).
 
 ## Repository layout
 
 ```
-configs/                          # YAML configs (paper + LLM-pair experiments)
-src/celeus/                         # estimator, baselines, harness (importable as `save`)
-scripts/run_paper_experiment.py   # single CLI entry-point for all stages
-scripts/paper_experiment/         # plot, render, build, verify, compute scripts
+configs/paper_experiment.yaml     experiment settings (single source of truth)
+src/celeus/core/                  estimator, e-process confidence sequence, run state
+src/celeus/acquisition/           sampling rules (residual magnitude, uniform, entropy-based)
+src/celeus/baselines/             e-value baseline (M4) and Cer-Eval (M5)
+src/celeus/paper_experiment/      experiment harness: config, cells, RNG streams, stages
+src/celeus/analysis/              replay and metrics for the bias/MSE/variance figures
+scripts/run_paper_experiment.py   command-line entry point for all stages
+scripts/paper_experiment/         figure, table and summary scripts
+tests/                            regression and smoke tests
 ```
 
-`results/`, `logs/`, and other run-time artefacts are git-ignored.
+## Reproducibility
 
-## Configuration
+Each seed spawns four independent NumPy generators (`celeus.paper_experiment.rng_streams`), so a given
+config and seed give the same trajectory on the same platform. The regression test checks this for every
+method.
 
-All runtime knobs live in YAML; the `protocol`, `methods`, and per-stage
-sections in `configs/paper_experiment.yaml` are documented inline and are the
-single source of truth. Code paths read config, never magic numbers. To run a
-modified protocol (e.g. tighter ε or a different α-split) it suffices to copy
-the config and pass `--config path/to/your.yaml`.
+## Citation
 
-## Determinism
-
-Each (cell × seed) trajectory uses an independent `numpy.random.Generator`
-seeded by `(seed_main, dataset_id, surrogate_id, target_id, loss)` via
-`src/celeus/paper_experiment/rng_streams.py`. Trajectories are bit-reproducible
-on a fixed CPU+BLAS combination. Numerical drift across BLAS implementations
-is bounded by 1e-6 in the reported metrics.
+```bibtex
+@inproceedings{celeus2026,
+  title     = {{CELEUS}: Certifiable and Efficient {LLM} Evaluation via E-Processes},
+  author    = {Zhou, Zhijian and Ye, Zesheng and Chen, Zhaorun and Li, Bo and Liu, Feng},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2026}
+}
+```
 
 ## License
 
-The code is released under the MIT License; see `LICENSE` for the full text.
-Pool fixtures and pretrained model logits inherit the licenses of their
-respective sources.
+MIT License; see `LICENSE`. Model outputs and datasets keep the licenses of their sources.

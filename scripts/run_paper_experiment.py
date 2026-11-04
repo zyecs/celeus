@@ -20,6 +20,8 @@ Where <STAGE> is one of:
   merge-cells      — Consolidate sub-cells into bundled .npz files.
   merge-oracle-accuracy — Consolidate oracle sub-cells into bundled .npz files.
   analyze          — Build summary.csv, figures and tables.
+  paper-acq-sweep  — Acquisition-strategy sweep on the six paper pairs. Requires --loss.
+  build-outputs    — Build all paper figures and tables (scripts/paper_experiment/build_paper_outputs.py).
 """
 from __future__ import annotations
 
