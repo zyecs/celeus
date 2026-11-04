@@ -1,13 +1,13 @@
-"""Render §6.4 MAE inset + App. C ``app:mae-axis`` artifacts.
+"""Render the MAE inset and the full MAE table for the appendix.
 
 Produces two artifacts under ``<out_root>/mae_axis_figs/``:
 
 * ``fig_mae_inset.pdf`` — two-panel scatter of width@stop versus pool MAE
   on a log10 x-axis, colour-coded by dataset and split into accuracy /
-  cross-entropy panels. Drops into the §6.4 inset slot.
+  cross-entropy panels. Drops into the inset slot of the main text.
 * ``tab_mae_full.tex`` — full per-(dataset, pair, loss) MAE table with
   width@stop and median V_t. 60 rows = 3 datasets x 10 pairs x 2 losses.
-  Lands behind ``app:mae-axis``.
+  Lands in the MAE-axis appendix slot.
 
 Input is ``<out_root>/mae_axis.csv`` written by ``compute_mae_axis.py``.
 """

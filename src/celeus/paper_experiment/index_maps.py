@@ -1,8 +1,7 @@
-"""Stage index -> cell-tuple mappings (deterministic iteration order).
+"""Maps from a flat index to a cell tuple, with a deterministic iteration order.
 
-v2: adds ``seed_chunks_of`` helper so SLURM arrays can assign one
-(cell, seed-chunk) to each task. Each chunk is a contiguous slice of
-the seed schedule.
+A SLURM array task receives one index and recovers the exact (cell, seed-chunk)
+unit it must run. Each seed chunk is a contiguous slice of the seed schedule.
 """
 from __future__ import annotations
 
@@ -12,7 +11,7 @@ from typing import Sequence
 from .config import PaperExperimentConfig
 
 
-DEFAULT_SEED_CHUNK_SIZE = 5  # v2: keeps CE tasks <= 25 h walltime.
+DEFAULT_SEED_CHUNK_SIZE = 5  # Keeps a cross-entropy task inside a 25 h walltime.
 
 
 def seed_chunks(
@@ -58,7 +57,7 @@ class OracleAccuracyCell:
 
 @dataclass(frozen=True)
 class AcquisitionSweepCell:
-    """One acquisition-sweep trajectory key (§6.5 item #3, Task 7).
+    """One acquisition-sweep trajectory key.
 
     The Cartesian product of YAML ``acquisition_sweep.cells`` x
     ``variants_{accuracy,cross_entropy}`` yields all sweep trajectories.
@@ -72,12 +71,11 @@ class AcquisitionSweepCell:
 
 @dataclass(frozen=True)
 class WallclockCell:
-    """One wallclock-stage trajectory key (§6.5 item #5, Task 9).
+    """One wall-clock-stage trajectory key.
 
-    Cer-Eval-only: the wallclock stage runs M5 with per-round timing
-    instrumentation so we can plot Cer-Eval's compute cost alongside
-    CELEUS/IID. ``loss`` is always ``"accuracy"`` (Cer-Eval scope per the
-    paper campaign) but is kept explicit for filename round-trip.
+    This stage runs Cer-Eval (M5) with per-round timing, which gives the
+    compute cost reported next to CELEUS and IID. ``loss`` is always
+    ``"accuracy"`` here, but stays explicit so the file name round-trips.
     """
     dataset: str
     surrogate: str
@@ -87,7 +85,7 @@ class WallclockCell:
 
 @dataclass(frozen=True)
 class HparamSweepCell:
-    """One hparam-sweep trajectory key (§6.5 item #4, Task 8).
+    """One hyperparameter-sweep trajectory key.
 
     The Cartesian product of YAML ``hparam_sweep.cells`` x ``configs`` yields
     all hparam-sweep trajectories. Accuracy-only; ``surrogate_type`` is fixed
@@ -183,9 +181,9 @@ def acquisition_sweep_cells(
     """Enumerate (cell × variant) trajectories for one loss × scope.
 
     Outer loop is YAML cells, inner is variants — preserves config order so
-    SLURM array indices are stable. The `scope` argument selects between the
-    legacy 6-cell sweep (`scope="legacy"`) and the v0502 12-cell sweep
-    (`scope="paper"`); see spec §7.3.
+    SLURM array indices are stable. ``scope`` selects between the smaller
+    exploratory sweep (``"legacy"``) and the sweep reported in the paper
+    (``"paper"``).
     """
     block = cfg.acquisition_sweep
     if scope == "legacy":
@@ -245,7 +243,7 @@ def hparam_sweep_cells(cfg: PaperExperimentConfig) -> list[HparamSweepCell]:
 
 
 def wallclock_cells(cfg: PaperExperimentConfig) -> list[WallclockCell]:
-    """Enumerate wallclock-stage trajectories (§6.5 item #5, Task 9).
+    """Enumerate wall-clock-stage trajectories.
 
     Outer loop is YAML cells; ``loss`` comes from the block ('accuracy' in
     the paper campaign). Each cell maps to one Cer-Eval (M5) trajectory.

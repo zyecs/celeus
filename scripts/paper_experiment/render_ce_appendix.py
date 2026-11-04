@@ -1,4 +1,4 @@
-"""Render CE appendix tables + figure for §6.5 item #6 (label app:ce-results).
+"""Render the cross-entropy appendix tables and figure (label app:ce-results).
 
 Produces three artifacts under ``<out_root>/ce_appendix/``:
 
@@ -10,8 +10,8 @@ Produces three artifacts under ``<out_root>/ce_appendix/``:
 * ``fig_ce_width.pdf`` — three-panel CE width-vs-labels figure (M1 in
   blue, M4 in orange, one panel per dataset).
 
-Design mirrors the §6.2 / §6.3 main-paper figures so the appendix slot
-referenced by ``\\label{app:ce-results}`` lines up cleanly.
+Design mirrors the main-paper figures so that the appendix slot referenced by
+``\\label{app:ce-results}`` lines up cleanly.
 """
 from __future__ import annotations
 

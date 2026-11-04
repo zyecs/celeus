@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# scripts/paper_experiment/build_reproduction_bundle.py
-"""Build results/paper_experiment/reproduction_bundle.tar.gz (spec §9)."""
+"""Build results/paper_experiment/reproduction_bundle.tar.gz."""
 from __future__ import annotations
 
 import hashlib
@@ -49,7 +48,7 @@ def main(argv=None) -> int:
         ["git", "rev-parse", "HEAD"], cwd=_REPO, text=True,
     ).strip()
 
-    # v2: read data_root from YAML rather than hardcoded relative path.
+    # Read data_root from the YAML config, not from a hardcoded path.
     import sys as _sys
     _sys.path.insert(0, str(_REPO / "src"))
     from celeus.paper_experiment.config import load_config

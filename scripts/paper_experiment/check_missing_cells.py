@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# scripts/paper_experiment/check_missing_cells.py
-"""Write results/paper_experiment/missing_cells.csv (spec §9)."""
+"""Write results/paper_experiment/missing_cells.csv."""
 from __future__ import annotations
 
 import argparse
@@ -117,19 +116,19 @@ def main(argv: list[str] | None = None) -> int:
         all_missing += collect_missing(
             out_base, _maybe_filter(oracle_accuracy_cells(cfg)), "oracle_accuracy"
         )
-    # §6.5 acquisition-sweep audit (only emit rows when block populated).
+    # Acquisition sweep: audit only when the config block is populated.
     if cfg.acquisition_sweep.get("seeds"):
         for loss in cfg.losses:
             all_missing += collect_missing(
                 out_base, _maybe_filter(acquisition_sweep_cells(cfg, loss=loss)),
                 "acquisition_sweep",
             )
-    # §6.5 hparam-sweep audit (only emit rows when block populated).
+    # Hyperparameter sweep: audit only when the config block is populated.
     if cfg.hparam_sweep.get("seeds"):
         all_missing += collect_missing(
             out_base, _maybe_filter(hparam_sweep_cells(cfg)), "hparam_sweep",
         )
-    # §6.5 wallclock audit (only emit rows when block populated).
+    # Wall-clock stage: audit only when the config block is populated.
     if cfg.wallclock.get("seeds"):
         all_missing += collect_missing(
             out_base, _maybe_filter(wallclock_cells(cfg)), "wallclock",

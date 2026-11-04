@@ -1,10 +1,10 @@
-"""Render M1 vs M3 (surrogate on/off) appendix for §6.5 item #2.
+"""Render the M1-vs-M3 appendix, which turns the surrogate on and off.
 
 Produces two artifacts under ``<out_root>/surrogate_onoff/``:
 
 * ``tab_delta.tex`` — per (dataset, loss) median labels-to-epsilon for
   M1 (Celeus, surrogate on) vs M3 (Celeus-no-surr, surrogate off) plus
-  the relative delta in percent. Lands behind ``app:surrogate-onoff``.
+  the relative delta in percent. Lands in the surrogate on/off appendix slot.
 * ``fig_width_per_dataset.pdf`` — six-panel width-vs-labels figure
   (3 datasets x 2 losses), M1 in blue and M3 in green per panel.
 

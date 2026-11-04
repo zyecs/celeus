@@ -1,4 +1,3 @@
-# src/celeus/paper_experiment/traj_utils.py
 """Small utilities for stretching ragged trajectories to a fixed T_max."""
 from __future__ import annotations
 

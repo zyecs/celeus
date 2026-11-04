@@ -1,4 +1,4 @@
-"""CE mini-sweep selection rules (paper_experiment spec §5)."""
+"""Selection rules for the cross-entropy surrogate mini-sweep."""
 from __future__ import annotations
 
 import json
@@ -29,8 +29,14 @@ def select_ce_winner(
     required_miscoverages: int,
     tie_break_pct: float,
 ) -> dict:
-    """Apply spec §5 filter A/B + minimum-median + tie-break rule."""
-    # Filter A + B.
+    """Pick the winning (surrogate_type, beta_min) configuration.
+
+    A configuration survives only if it never misses coverage more often than
+    ``required_miscoverages`` and stops on at least ``min_stop_rate`` of seeds.
+    Among the survivors within ``tie_break_pct`` of the smallest median
+    labels-to-stop, the one with the highest stop rate wins; ties go to the
+    smaller beta_min.
+    """
     survivors = [
         (key, group) for key, group in groups.items()
         if _miscov_count(group) <= required_miscoverages

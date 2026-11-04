@@ -4,9 +4,6 @@ CELEUS evaluation pool and partition utilities.
 EvaluationPool: holds surrogate scores and (optionally) ground-truth losses.
 make_strata: creates list[StratumState] from a pool and partition indices.
 make_trivial_partition: trivial K=1 partition (all items in stratum 0).
-
-Source: Spec §2.1 setup (stratum weights), Spec §1.2-§1.3 (pool fields),
-        Blueprint §1.1 (O(1) surrogate mean).
 """
 
 from __future__ import annotations
@@ -19,9 +16,7 @@ import numpy as np
 from celeus.core.state import StratumState
 
 
-# ---------------------------------------------------------------------------
 # EvaluationPool
-# ---------------------------------------------------------------------------
 
 @dataclass
 class EvaluationPool:
@@ -31,15 +26,15 @@ class EvaluationPool:
     Fields
     ------
     N : int
-        Total pool size. [Spec §1.2]
+        Total pool size.
     surrogate_scores : np.ndarray
-        Shape (N,) float in [0, 1]. Surrogate model scores. [Spec §1.3]
+        Shape (N,) float in [0, 1]. Surrogate model scores.
     ground_truth_losses : np.ndarray or None
-        Shape (N,) float in [0, 1]. None for unlabeled pools. [Spec §1.2]
+        Shape (N,) float in [0, 1]. None for unlabeled pools.
     item_ids : np.ndarray
-        Shape (N,) int or str identifiers. [DERIVED — verify]
+        Shape (N,) int or str identifiers.
     metadata : dict
-        Dataset name, model name, etc. [DERIVED — verify]
+        Dataset name, model name, etc.
     """
 
     N: int
@@ -50,14 +45,12 @@ class EvaluationPool:
     target_distributions: Optional[np.ndarray] = None
     surrogate_distributions: Optional[np.ndarray] = None
     embeddings: Optional[np.ndarray] = None  # shape (N, D), L2-normalized
-    # --- Stage 13: label-free loss proxy for Remark 1 strategies ---
-    # Populated by loader.load_from_config when surrogate_type is one of
-    # remark1_strategy{1,2,3}; None for all other surrogate types.
+    # Label-free loss proxy for the score-based acquisition strategies.
+    # loader.load_from_config populates it for the `remark1_*` and `remark2_*`
+    # surrogate types; it stays None for every other surrogate type.
     ell_proxy: Optional[np.ndarray] = None
 
-    # ------------------------------------------------------------------
     # Constructors
-    # ------------------------------------------------------------------
 
     @classmethod
     def from_files(
@@ -97,7 +90,7 @@ class EvaluationPool:
             else:
                 loaded_losses = np.load(losses_path).astype(np.float64)
 
-            # Length alignment check [requirements_zzj_cc.md §6.2]
+            # Length alignment check
             if loaded_losses.shape[0] != N:
                 raise ValueError(
                     f"losses length {loaded_losses.shape[0]} != "
@@ -131,43 +124,40 @@ class EvaluationPool:
         Surrogate scores = rho_surr * losses + (1 - rho_surr) * Uniform(0, 1),
         clipped to [0, 1].
 
-        When rho_surr == 1.0, surrogate_scores == ground_truth_losses exactly.
-        This is REQUIRED for Gate G0-2 (oracle sanity). [Spec §6.1 E1]
+        When rho_surr == 1.0, surrogate_scores == ground_truth_losses exactly,
+        which the oracle sanity check needs.
 
-        Beta parameterization: a=2, b = a*(1 - R_true) / R_true, mean = a/(a+b) = R_true.
-        [DERIVED — verify]: standard Beta moment-matching with a=2.
+        Beta parameterization: a=2, b = a*(1 - R_true) / R_true, so the mean is
+        a/(a+b) = R_true.
 
         Parameters
         ----------
         N : int
-            Pool size. [Spec §1.2]
+            Pool size.
         R_true : float
-            Target mean loss (E[L]). [Spec §1.2]
+            Target mean loss (E[L]).
         rho_surr : float
             Surrogate-loss correlation in [0, 1]. rho_surr=1.0 → perfect surrogate.
         rng : np.random.Generator
-            Seeded generator (CLAUDE.md Rule 4 — no global state).
+            Seeded generator; no global random state is used.
 
         Returns
         -------
         EvaluationPool
         """
         # Beta parameters: mean = a / (a + b) = R_true → b = a*(1-R_true)/R_true
-        # [DERIVED — verify]: moment matching for Beta(a, b) with a=2
         a = 2.0
         b = a * (1.0 - R_true) / R_true  # ensures mean = R_true
 
         # numpy Generator.beta works directly (no scipy needed here)
-        # [DERIVED — verify]: np.random.Generator.beta(a, b, size) is valid
         ground_truth_losses = rng.beta(a, b, size=N)
 
         if rho_surr == 1.0:
-            # Perfect surrogate: exact copy (required for Gate G0-2)
-            # [Spec §6.1 E1]: oracle sanity requires surrogate_scores == losses
+            # Perfect surrogate: exact copy, required by the oracle sanity check.
             surrogate_scores = ground_truth_losses.copy()
         else:
-            # Noisy surrogate: convex combination with Uniform noise
-            # [DERIVED — verify]: matches surrogate degradation model Spec §5 ablation A4
+            # Noisy surrogate: convex combination with uniform noise. This is
+            # the surrogate degradation model used in the ablation.
             noise = rng.uniform(0.0, 1.0, size=N)
             surrogate_scores = np.clip(
                 rho_surr * ground_truth_losses + (1.0 - rho_surr) * noise,
@@ -200,14 +190,14 @@ class EvaluationPool:
         rng: Optional[np.random.Generator] = None,
     ) -> "EvaluationPool":
         """
-        Generate a synthetic CE-scale evaluation pool for Stage 13 tests.
+        Generate a synthetic evaluation pool on the cross-entropy scale.
 
         The existing ``from_synthetic`` assumes a Beta mean in (0, 1),
         which cannot represent a CE-scale ``R_true > 1``. This factory
         uses a shifted exponential distribution so ``R_true`` can be
         anywhere strictly inside ``loss_range`` without clip bias, and
-        attaches synthetic target distributions so Remark 1 strategies
-        (which need ``p_f(.|x)``) can be exercised end-to-end on
+        attaches synthetic target distributions so the cross-entropy
+        strategies (which need ``p_f(.|x)``) can be exercised end-to-end on
         synthetic data.
 
         Parameters
@@ -224,18 +214,16 @@ class EvaluationPool:
             ``(lo, hi)`` bounds on CE loss. Defaults to ``(0, 3)`` which
             supports ``R_true = 1.2`` with plenty of headroom.
         rng : np.random.Generator
-            Seeded generator (CLAUDE.md Rule 5 — no global state).
+            Seeded generator; no global random state is used.
 
         Returns
         -------
         EvaluationPool
             With ``ground_truth_losses`` on CE scale, correlated
             ``surrogate_scores``, synthetic ``target_distributions``
-            whose entropy correlates with the loss, and ``ell_proxy=None``
-            (the loader populates ``ell_proxy`` for real Remark 1 runs;
-            synthetic fixtures can set it directly via the pool's
-            attribute).
-
+            whose entropy correlates with the loss, and ``ell_proxy=None``.
+            The loader populates ``ell_proxy`` for real runs; synthetic
+            fixtures can set the attribute directly.
         """
         if rng is None:
             raise ValueError("from_synthetic_ce requires an explicit rng")
@@ -249,7 +237,6 @@ class EvaluationPool:
         # With clipping at width = hi - lo, E[min(X, width)] for X ~ Exp(scale)
         # is scale * (1 - exp(-width / scale)); solve this so the clipped
         # distribution targets R_true without systematic clip bias.
-        # [Ref: Stage 13 Spec §4.2]
         width = hi - lo
 
         def _clipped_exp_mean(scale_value: float) -> float:
@@ -268,7 +255,7 @@ class EvaluationPool:
                 scale_hi = scale_mid
         scale = scale_hi
         # Use stratified inverse-CDF sampling to reduce finite-N drift while
-        # preserving the shifted exponential marginal family. [DERIVED — verify]
+        # preserving the shifted exponential marginal family.
         uniforms = (np.arange(N, dtype=np.float64) + rng.random(N)) / float(N)
         rng.shuffle(uniforms)
         raw = -scale * np.log1p(-uniforms)
@@ -283,7 +270,7 @@ class EvaluationPool:
             )
 
         # Correlated surrogate scores: linear mix of the true losses with
-        # independent zero-mean noise. [DERIVED — verify]
+        # independent zero-mean noise.
         noise = rng.standard_normal(N) * (hi - lo) / 2.0
         surrogate_scores = (
             rho_surr * losses + (1.0 - rho_surr) * (float(losses.mean()) + noise)
@@ -291,8 +278,8 @@ class EvaluationPool:
 
         # Synthetic target distributions over C=4 classes, where low-loss
         # items are peaky (low entropy) and high-loss items are flat
-        # (high entropy). This makes all three Remark 1 strategies
-        # produce nontrivial scores on synthetic data. [Ref: Stage 13 Spec §4.2]
+        # (high entropy). This makes every cross-entropy strategy produce
+        # nontrivial scores on synthetic data.
         C = 4
         target_distributions = np.empty((N, C), dtype=np.float64)
         loss_frac = (losses - lo) / (hi - lo)  # in [0, 1]
@@ -324,9 +311,7 @@ class EvaluationPool:
         )
 
 
-# ---------------------------------------------------------------------------
 # Partition factories
-# ---------------------------------------------------------------------------
 
 def make_strata(
     pool: EvaluationPool,
@@ -347,7 +332,6 @@ def make_strata(
     list[StratumState]
         One StratumState per unique stratum label, sorted by stratum index.
         Stratum weights w_k = N_k / N sum to 1.0 within float tolerance.
-        [Spec §2.1 setup: "Stratum weights w_k = N_k / N"]
     """
     unique_ks = np.unique(partition_indices)
     strata: list[StratumState] = []
@@ -358,18 +342,17 @@ def make_strata(
         local_pool_indices = np.where(mask)[0]  # global pool indices
         N_k = int(mask.sum())
 
-        # Stratum weight: w_k = N_k / N  [Spec §2.1 setup]
+        # Stratum weight: w_k = N_k / N
         w_k = N_k / pool.N
 
         # Surrogate scores for this stratum (copy to avoid aliasing)
         surrogate_scores_k = pool.surrogate_scores[mask].copy()
 
-        # Cache surrogate mean once: O(N_k), not recomputed per call
-        # [Blueprint §1.1 note on O(1) surrogate mean during estimation]
+        # Cache the surrogate mean once: O(N_k) here, O(1) per estimator call.
         surrogate_mean_k = float(surrogate_scores_k.mean())
 
-        # labeled_mask must be initialized explicitly (depends on N_k)
-        # [Implementation Note 6: do NOT use dataclass default_factory here]
+        # labeled_mask must be initialized explicitly because it depends on
+        # N_k; do not use a dataclass default_factory here.
         labeled_mask_k = np.zeros(N_k, dtype=bool)
 
         stratum = StratumState(
@@ -381,12 +364,12 @@ def make_strata(
             surrogate_mean=surrogate_mean_k,
             labeled_mask=labeled_mask_k,
         )
-        # Forward optional distribution arrays to stratum [Eq. (15); Stage 6.5]
+        # Forward the optional per-class distribution arrays to the stratum.
         if pool.target_distributions is not None:
             stratum.target_distributions = pool.target_distributions[mask].copy()
         if pool.surrogate_distributions is not None:
             stratum.surrogate_distributions = pool.surrogate_distributions[mask].copy()
-        # Forward Remark 1 label-free loss proxy [Stage 13 §5.2]
+        # Forward the label-free loss proxy.
         if pool.ell_proxy is not None:
             stratum.ell_proxy = pool.ell_proxy[mask].copy()
         strata.append(stratum)
@@ -397,8 +380,6 @@ def make_strata(
 def make_trivial_partition(pool: EvaluationPool) -> list[StratumState]:
     """
     Create a trivial K=1 partition: all items in stratum 0.
-
-    Source: [DERIVED — trivial K=1 special case of make_strata]
     """
     # All items assigned to stratum 0
     partition_indices = np.zeros(pool.N, dtype=int)
@@ -416,14 +397,13 @@ def make_quantile_partition(
     quantile bins. Raises ValueError if fewer than K non-empty strata result
     (e.g., discrete or low-cardinality surrogates).
 
-    Source: Spec §1.3; Spec §3.6.
-    [Spec §3.6]: Var_stratified = Var_unstratified - sum_k w_k (R_bar_k - R_bar)^2
+    Stratification lowers the variance by sum_k w_k (R_bar_k - R_bar)^2.
     """
     assert pool.N >= K, f"make_quantile_partition: pool.N={pool.N} < K={K}"
     if K == 1:
         return make_trivial_partition(pool)
 
-    # K-1 quantile boundaries at 1/K, 2/K, ..., (K-1)/K  [Spec §3.6]
+    # K-1 quantile boundaries at 1/K, 2/K, ..., (K-1)/K
     quantile_fractions = np.linspace(1.0 / K, (K - 1.0) / K, K - 1)
     boundaries = np.quantile(pool.surrogate_scores, quantile_fractions)
 

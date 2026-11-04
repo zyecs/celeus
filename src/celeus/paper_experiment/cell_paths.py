@@ -1,5 +1,4 @@
-# src/celeus/paper_experiment/cell_paths.py
-"""Canonical paths for paper-experiment cell .npz files (spec §4 output schema).
+"""Canonical paths for the cell ``.npz`` files of the paper experiment.
 
 Field separator is ``__`` (double underscore) so that model names containing
 single underscores (``llama2_7b``, ``Mixtral_8x7b``, ``deepseek_67b``,
@@ -46,7 +45,7 @@ def main_subcell_path(
 ) -> Path:
     """Sub-cell path for one seed-chunk of a main cell.
 
-    Sub-cells are intermediate (see Task 13b). The merge stage consolidates
+    Sub-cells are intermediate. The merge stage consolidates
     all sub-cells for a (method,dataset,surrogate,target,loss) key into a
     bundled ``cell__...npz`` and deletes them.
     """
@@ -164,7 +163,7 @@ def acquisition_sweep_cell_path(
     loss: str,
     surrogate_type: str,
 ) -> Path:
-    """Final cell .npz path for §6.5 acquisition-sweep trajectories.
+    """Final cell .npz path for an acquisition-sweep trajectory.
 
     Filename: ``cell__acquisition_sweep__{dataset}__{surrogate}__{target}__{loss}__{surrogate_type}.npz``
     """
@@ -204,7 +203,7 @@ def wallclock_cell_path(
     target: str,
     loss: str = "accuracy",
 ) -> Path:
-    """Final cell .npz path for §6.5 wallclock trajectories (Task 9).
+    """Final cell .npz path for a wall-clock trajectory.
 
     Filename: ``cell__wallclock__{dataset}__{surrogate}__{target}__{loss}.npz``.
 
@@ -247,7 +246,7 @@ def hparam_sweep_cell_path(
     loss: str,
     config_name: str,
 ) -> Path:
-    """Final cell .npz path for §6.5 hparam-sweep trajectories.
+    """Final cell .npz path for a hyperparameter-sweep trajectory.
 
     Filename: ``cell__hparam_sweep__{dataset}__{surrogate}__{target}__{loss}__{config_name}.npz``
     """

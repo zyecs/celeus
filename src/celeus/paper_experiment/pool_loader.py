@@ -1,8 +1,8 @@
-"""Cell-level pool loader — wraps celeus.loader.load_experiment for reuse across seeds.
+"""Cell-level pool loader. Wraps celeus.loader.load_experiment for reuse across seeds.
 
 Also computes a SHA-256 of the loaded pool's ``(ground_truth_losses,
-surrogate_scores)`` arrays as a fingerprint; spec §9 mandates a pool-identity
-hash for reproducibility.
+surrogate_scores)`` arrays. Runs that share a cell must share this fingerprint,
+which is what makes the per-seed results comparable.
 """
 from __future__ import annotations
 
@@ -45,14 +45,14 @@ def load_pool_for_cell(
         "loss_type": loss,
     }
     if not load_embeddings:
-        # Point embedding lookup at a non-existent subdir so _load_embeddings
-        # returns None gracefully (see celeus/loader.py:219-236).
+        # Point embedding lookup at a non-existent subdir so the loader returns
+        # None for the embeddings instead of raising.
         cfg["embedding_model"] = "__pool_loader_no_embeddings__"
     return load_experiment(cfg, ce_nll_filter=ce_nll_filter)
 
 
 def pool_sha256(pool: EvaluationPool) -> str:
-    """Deterministic fingerprint of the loaded pool (spec §9 Stage 0)."""
+    """Deterministic fingerprint of the loaded pool."""
     h = hashlib.sha256()
     h.update(np.ascontiguousarray(pool.ground_truth_losses).tobytes())
     h.update(b"|")

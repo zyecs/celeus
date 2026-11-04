@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Plan + render the RQ1 label-efficiency artifacts for the CELEUS-anchored
-new variant.
+"""Plan and render the RQ1 label-efficiency artifacts.
 
-Sibling of ``run_rq1_efficiency.py``. Differences:
-
-- Methods include ``M3`` (CELEUS w/o surrogate).
-- No Cer-Eval scope.
-- No oracle planner gating: failures surface as ``FileNotFoundError`` /
-  ``RuntimeError`` from ``common.load_selected_seed_trajectories`` when the
-  rendering call runs.
+The method set includes ``M3`` (CELEUS without the surrogate) and excludes
+Cer-Eval. There is no oracle planner gate: a missing or incomplete cell
+surfaces as ``FileNotFoundError`` or ``RuntimeError`` from
+``common.load_selected_seed_trajectories`` at render time.
 """
 from __future__ import annotations
 

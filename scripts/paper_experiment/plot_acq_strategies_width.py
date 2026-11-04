@@ -8,7 +8,7 @@ Produces two 1×3-dataset figures, one per loss:
 
 For each loss, shows the top-3 surrogate-construction strategies (R1-S* /
 R2-S* + the loss-matched Oracle) ranked by median labels-to-ε from the
-existing acquisition_appendix/tab_strategies_v0502_top3.tex. Curves are
+existing acquisition_appendix/tab_strategies_paper_top3.tex. Curves are
 the mean width across (paper_pair × seed) within each (strategy, dataset)
 slice.
 
@@ -63,8 +63,8 @@ _FONT_SIZES = {
     "ytick.labelsize": 11,
 }
 
-# Non-oracle strategies ranked by median labels-to-ε (lower = better),
-# pulled from acquisition_appendix/tab_strategies_v0502_top3.tex (v0504 rerun).
+# Non-oracle strategies ranked by median labels-to-ε (lower is better),
+# taken from acquisition_appendix/tab_strategies_paper_top3.tex.
 # Oracle is excluded by design — it's a per-loss reference ceiling, not a
 # deployable acquisition strategy, so a "top-3" comparison should be among
 # the practical (non-oracle) candidates.
@@ -84,7 +84,7 @@ _RANKING_BY_LOSS = {
     ],
 }
 
-# Color palette (mirrors rq1-efficiency-new tones).
+# Color palette, matching the tones of the rq1 efficiency figures.
 _COLORS = ["#B64A3B", "#2B7A78", "#4C566A", "#D89488"]
 _LINESTYLES = ["-", "-", "-", "--"]
 
@@ -208,12 +208,12 @@ def _plot_loss_figure(
     if n == 1:
         axes = [axes]
 
-    # Panel x_end: max(labels) across plotted strategies (the slowest strategy
-    # to hit ε sets the panel width). Each strategy's curve still ends at its
-    # own natural max — we do NOT boundary-anchor here, so a strategy with
-    # shorter coverage (e.g. only 2 of 6 paper_pairs swept) renders as a
-    # truncated curve in its actual range rather than getting extended flat
-    # to the panel edge (which would hide it under longer-running strategies).
+    # Panel x_end: max(labels) across the plotted strategies, so the slowest
+    # strategy to reach ε sets the panel width. Each curve still ends at its
+    # own maximum; there is no boundary anchoring here. A strategy with
+    # shorter coverage therefore renders as a truncated curve in its actual
+    # range, instead of being extended flat to the panel edge, where longer
+    # strategies would hide it.
     x_ends: dict[str, int] = {}
     for ds in datasets:
         ends: list[int] = []

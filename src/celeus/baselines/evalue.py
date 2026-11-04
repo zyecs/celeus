@@ -5,7 +5,8 @@ No AIPW, no surrogate, no strata. Uses α₁/α₂ split matching CELEUS:
   α₁ for the e-value CS targeting R_N (pool risk)
   α₂ for Hoeffding population correction R_N → R
 
-Source: Draft §3.2; [WSR24] — WOR preserves supermartingale property.
+Sampling is without replacement, which preserves the supermartingale property
+of the capital process (Waudby-Smith and Ramdas, 2024).
 """
 
 from __future__ import annotations
@@ -38,11 +39,12 @@ class NaiveEValueBaseline:
     pool : EvaluationPool
         Evaluation pool (only N used for budget).
     seed : int | None
-        Random seed. CLAUDE.md Rule 4.
+        Random seed. Mutually exclusive with rng.
     rng : np.random.Generator | None
         Injected random generator. Mutually exclusive with seed.
 
-    Source: Draft §3.2; [WSR24] — WOR supermartingale property.
+    Sampling is without replacement, which preserves the supermartingale
+    property of the capital process.
     """
 
     def __init__(
@@ -63,7 +65,7 @@ class NaiveEValueBaseline:
         else:
             raise ValueError("must pass seed= or rng=")
 
-        # α₁/α₂ split matching CELEUS [Draft §3.2]
+        # α₁/α₂ split matching CELEUS.
         L = config.loss_bound
 
         # For uniform WOR sampling, raw losses L_t ∈ [0, L].
@@ -119,11 +121,11 @@ class NaiveEValueBaseline:
             idx = int(perm[t - 1])
             loss = float(oracle_fn(np.array([idx]))[0])
 
-            # Feed raw loss into CS — rescaling handled inside EValueCS
-            # [WSR24]: WOR supermartingale → CS valid (conservative)
+            # Feed the raw loss into the CS; rescaling happens inside EValueCS.
+            # Sampling without replacement keeps the CS valid, and conservative.
             lower, upper, _ = self.cs.update(loss)
 
-            # Pool feasibility intersection [Draft v0403 §3.2 page 7]
+            # Pool feasibility intersection.
             lower, upper, _ = pool_feasibility_intersection(
                 lower=lower,
                 upper=upper,
@@ -134,7 +136,7 @@ class NaiveEValueBaseline:
                 loss_upper=self.config.loss_bound,
             )
 
-            # Population correction [Draft page 7: Δ_N = L·√(log(2/α₂)/(2N))]
+            # Population correction: Δ_N = L·√(log(2/α₂)/(2N)).
             pop_lower, pop_upper, pop_w = self.cs.population_correction(
                 lower=lower,
                 upper=upper,
@@ -153,11 +155,9 @@ class NaiveEValueBaseline:
             pop_upper_list.append(pop_upper)
             total_labels_list.append(t)
 
-            # paper_experiment spec §4: monitor_to_T_max suppresses the break.
-            # Also mirror CeleusRunner's fixed_horizon semantics — when True, the
-            # baseline MUST run to T_max because its CI is valid only at t=T.
-            # (Current legacy behaviour was to break unconditionally, which is
-            # a pre-existing divergence from CeleusRunner; this patch fixes both.)
+            # monitor_to_T_max suppresses this break so the full trajectory is
+            # recorded. fixed_horizon also suppresses it, because in that mode
+            # the CI is valid only at t = T_max, mirroring CeleusRunner.
             if (
                 pop_w <= self.config.epsilon
                 and not self.config.fixed_horizon

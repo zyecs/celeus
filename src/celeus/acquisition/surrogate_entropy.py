@@ -1,5 +1,5 @@
 """
-Surrogate-entropy IS acquisition policy (Eq. 15).
+Surrogate-entropy importance-sampling acquisition policy.
 
 Surrogate-guided within-stratum acquisition that oversamples items
 where target and surrogate models disagree (high cross-entropy),
@@ -7,10 +7,6 @@ floored at beta_min/N_k.
 
 Falls back to SelfEntropyAcquisition when only scalar surrogates
 are available (no distribution arrays on the stratum).
-
-Source: Spec section 2.4 Eq. (15); Berrada et al. SurrogateEntropyAcquisition.
-CLAUDE.md G1: every formula cites source.
-CLAUDE.md Rule 5: rng passed explicitly, never global state.
 """
 
 from __future__ import annotations
@@ -39,8 +35,6 @@ def _cross_entropy(p: np.ndarray, q: np.ndarray) -> np.ndarray:
     -------
     np.ndarray
         Shape (N,) cross-entropy values.
-
-    Source: Spec section 2.4 Eq. (15).
     """
     q_safe = np.clip(q, 1e-12, None)
     return -np.sum(p * np.log(q_safe), axis=1)
@@ -57,10 +51,9 @@ class SurrogateEntropyAcquisition(AcquisitionPolicy):
     Falls back to SelfEntropyAcquisition when distribution arrays are absent.
 
     Source: Berrada et al. SurrogateEntropyAcquisition (scaling-up-active-testing).
-    [DEPRECATED as of 2026-04-11 (Stage 13) — prefer remark1_strategy{1,2,3}
-    with ResidualMagnitudeAcquisition for Theorem-5-aligned acquisition.
-    This class is kept for stage-8..12 reproducibility and is selected by
-    benchmark.py whenever surrogate_type is not a remark1_* value.]
+    Superseded by ResidualMagnitudeAcquisition, which follows Theorem 4. This
+    class is kept so that earlier runs stay reproducible; benchmark.py selects
+    it whenever surrogate_type is not a `remark1_*` value.
     """
 
     def __init__(self, beta_min: float = 0.05):
@@ -72,18 +65,13 @@ class SurrogateEntropyAcquisition(AcquisitionPolicy):
         stratum: StratumState,
     ) -> np.ndarray:
         """
-        Compute initial (step-0) proposal distribution over remaining items.
+        Compute the step-0 proposal distribution over remaining items.
 
-        Helper extracted from select() to expose the first-draw probabilities.
-        Falls back to _fallback._compute_initial_probs when distribution arrays are absent.
-        Returns shape (|remaining|,) array of probabilities summing to 1.
-
-        When remaining is empty, returns np.empty(0, dtype=np.float64).
-
-        Source: Spec section 2.4 Eq. (15); Blueprint lines 647-663.
+        Delegates to the self-entropy fallback when distribution arrays are
+        absent. Returns a shape (|remaining|,) array of probabilities summing
+        to 1, or np.empty(0, dtype=np.float64) when nothing remains.
         """
-        # Check if distribution arrays are available
-        # [Spec section 2.4 Eq. (15) note]
+        # Per-class distributions are optional on the stratum.
         if (
             stratum.target_distributions is None
             or stratum.surrogate_distributions is None
@@ -98,13 +86,12 @@ class SurrogateEntropyAcquisition(AcquisitionPolicy):
 
         alpha = self.beta_min / stratum.N_k
 
-        # Compute initial probabilities via mixture distribution
-        # [Spec section 2.4 Eq. (15)]
+        # Mixture of a uniform floor and the score-proportional part.
         if N_rem * alpha >= 1.0:
             pool_probs = np.full(N_rem, 1.0 / N_rem)
         else:
-            # Compute raw scores: H_cross(p_surr, p_target) + epsilon
-            # [Berrada et al.: -Σ p_surr(c) · log p_target(c)]
+            # Raw scores: H_cross(p_surr, p_target) = -Σ p_surr(c) log p_target(c),
+            # plus an epsilon that keeps the sum positive.
             p_target = stratum.target_distributions[remaining]
             p_surr = stratum.surrogate_distributions[remaining]
             scores = _cross_entropy(p_surr, p_target)
@@ -122,29 +109,24 @@ class SurrogateEntropyAcquisition(AcquisitionPolicy):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Select n_k unlabeled items via surrogate-entropy acquisition.
-
-        Source: Spec section 2.4 Eq. (15); Blueprint lines 647-663 pattern.
         """
-        # Step 0: Check if distribution arrays are available
-        # [Spec section 2.4 Eq. (15) note]
+        # Per-class distributions are optional on the stratum.
         if (
             stratum.target_distributions is None
             or stratum.surrogate_distributions is None
         ):
             return self._fallback.select(stratum, n_k, rng)
 
-        # Step 1: Get remaining unlabeled items
+        # Remaining unlabeled items.
         remaining = stratum.remaining_indices()
         n_select = min(n_k, len(remaining))
 
-        # Step 2: Handle empty case
         if n_select == 0:
             return np.array([], dtype=int), np.array([], dtype=np.float64)
 
-        # Step 3: Compute initial probabilities
         pool_probs = self._compute_initial_probs(stratum)
 
-        # Step 4: Sequential WOR loop (identical to other policies)
+        # Sequential without-replacement loop; renormalize after each removal.
         pool = remaining.copy()
         chosen_local = np.empty(n_select, dtype=int)
         q_values = np.empty(n_select, dtype=np.float64)
@@ -168,28 +150,26 @@ class SurrogateEntropyAcquisition(AcquisitionPolicy):
         """
         Return the current proposal distribution over unlabeled items.
 
-        Unlike select(), this does NOT draw. It exposes the probability mass
-        function q_t(j | F_{t-1}, D_N) that select() would use on its first draw.
-        Needed by rq4-rq6 replay analysis to compute conditional variances over
-        the pool at step-0 (before within-batch sequential renormalization).
+        Unlike select(), this does not draw. It exposes the probability mass
+        function that select() would use on its first draw. The replay
+        diagnostics need it to compute conditional variances over the pool at
+        step 0, before the within-batch sequential renormalization.
 
-        The G4 coupling (n_select == 1) ensures this step-0 distribution is
-        all that's needed — no information about subsequent draws within a batch
-        is required. [rq4-rq6 spec §4.3; design §5.6]
+        Replay runs with n_select == 1, so the step-0 distribution is all that
+        is required.
 
         Parameters
         ----------
         stratum : StratumState
             Current stratum state.
         n_k : int
-            Requested number of draws; unused (honoured for signature parity).
+            Requested number of draws; unused (kept for signature parity).
 
         Returns
         -------
         pool_probs : np.ndarray
             Shape (|remaining|,) float64 probability mass function.
-            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when remaining is empty.
-
-        Source: rq4-rq6 design §5.6 + §4.3.
+            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when
+            remaining is empty.
         """
         return self._compute_initial_probs(stratum)

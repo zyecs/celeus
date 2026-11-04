@@ -1,7 +1,4 @@
-"""
-CELEUS benchmark runner — runs CELEUS + baselines for comparison.
-
-"""
+"""CELEUS benchmark runner: runs CELEUS and the baselines for comparison."""
 
 from __future__ import annotations
 
@@ -46,7 +43,7 @@ class BenchmarkResult:
     baseline_trajectory: dict
     celeus_ci_mid: float = 0.0
     baseline_ci_mid: float = 0.0
-    # New baseline fields — Source: spec §Benchmark Integration
+    # Baseline result fields.
     evalue_baseline_estimate: Optional[float] = None
     evalue_baseline_ci: Optional[tuple] = None
     evalue_baseline_width: Optional[float] = None
@@ -59,7 +56,7 @@ class BenchmarkResult:
     cereval_baseline_labels: Optional[int] = None
     cereval_baseline_trajectory: Optional[dict] = None
     cereval_baseline_ci_mid: Optional[float] = None
-    # Runtime-computed values for reporting [Stage 11 Fix 2]
+    # Runtime-computed values for reporting.
     runtime_grid_size: Optional[int] = None
     runtime_cs_range: Optional[float] = None
 
@@ -140,12 +137,12 @@ def _run_single(
         cs_a = L_lo
         cs_b = L_hi
     else:
-        # Conservative bound, exact in large-N limit. [Draft v0403 §3.2 page 6]
+        # Conservative bound, exact in the large-N limit.
         cs_a = L_lo - loss_range / beta
         cs_b = L_hi + loss_range / beta
 
     # Scale grid_size to maintain ~0.0005 original-scale resolution
-    # regardless of [a,b] range. [Remark 3; Stage 11 plan §1.2]
+    # regardless of the [a,b] range.
     cs_range = cs_b - cs_a
     grid_size = max(config.cs_grid_size, int(np.ceil(cs_range * config.cs_grid_size)))
     grid_size = min(grid_size, 200_000)  # Safety cap for CE loss
@@ -224,13 +221,13 @@ def run_benchmark(
         pool = load_experiment(config)
 
     if rngs is None:
-        # Back-compat: legacy single-seed path uses independent
-        # default_rng(seed) per site (existing behaviour).
+        # Single-seed path: each call site builds its own
+        # default_rng(seed) instead of drawing from shared streams.
         rngs = {"celeus_acq": None, "baseline_order": None}
 
     celeus_config = _build_celeus_config(config)
 
-    # Set loss_bound from data for CE loss [Draft page 5: 0 ≤ ℓ ≤ L]
+    # Set loss_bound from the data for CE loss: 0 ≤ ℓ ≤ L.
     # For accuracy loss, L=1.0 (default). For CE loss, L=max(losses).
     loss_type = config.get("loss_type", "accuracy")
     if loss_type == "cross_entropy":
@@ -242,7 +239,7 @@ def run_benchmark(
 
     # CELEUS run: Uniform allocation + acquisition policy
     # uniform_acquisition=True -> CELEUS-uniform ablation (acquirer=None, uniform WOR)
-    # [Stage 11 plan §4.4: isolate acquisition vs estimator benefit]
+    # The ablation isolates the acquisition benefit from the estimator benefit.
     surrogate_type = config.get("surrogate_type", "auto")
     uniform_acq = config.get("uniform_acquisition", False)
     if surrogate_type == "none" or uniform_acq:
@@ -268,8 +265,8 @@ def run_benchmark(
     )
 
     # E-value baseline — anytime-valid, uniform WOR + e-value CS
-    # Uses α₁/α₂ split + population correction matching CELEUS. [Draft §3.2]
-    # Replaces CLT baseline: we only care about anytime-valid guarantees.
+    # Uses the α₁/α₂ split and the population correction that CELEUS uses.
+    # A CLT baseline is not compared: only anytime-valid guarantees matter here.
     baseline_seed = method_config(config).get("seed", celeus_config.seed)
     if rngs["baseline_order"] is not None:
         evalue_bl = NaiveEValueBaseline(celeus_config, pool, rng=rngs["baseline_order"])
@@ -285,7 +282,6 @@ def run_benchmark(
     evalue_traj = base_traj
 
     # Cer-Eval baseline — only if embeddings available and not skipped
-    # Source: spec §3
     ce_est = ce_ci = ce_w = ce_n = ce_traj = ce_mid = None
     skip_cereval = config.get("skip_cereval", False)
     if not skip_cereval and pool.embeddings is not None:

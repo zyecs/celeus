@@ -1,4 +1,4 @@
-"""Render App.~``app:per-cell-efficiency`` table.
+"""Render the per-cell efficiency table for the appendix.
 
 Produces one artifact under ``<out_root>/per_cell_efficiency/``:
 

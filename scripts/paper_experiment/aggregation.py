@@ -1,4 +1,4 @@
-"""Aggregation helpers for rq4-rq6 plotting (spec §8).
+"""Aggregation helpers for the rq4-rq6 plots.
 
 Single source of truth for:
   - parse_cell_filename: regex + post-classification for 3 trajectory dir formats
@@ -19,10 +19,9 @@ import pandas as pd
 
 _log = logging.getLogger(__name__)
 
-# Round-2 fix: original regex hardcoded loss=accuracy|cross_entropy and failed
-# on oracle_accuracy filenames whose tail is e.g. remark2_oracle_strategy4.
-# Solution: capture the tail un-anchored, then post-classify based on method
-# name. Verified live on 3 trajectory dir formats.
+# The regex captures the filename tail without anchoring it on the loss name,
+# because oracle_accuracy filenames end in a strategy name such as
+# remark2_oracle_strategy4. The method name then classifies the tail.
 _CELL_RE = re.compile(
     r"^cell__"
     r"(?P<method>[A-Za-z0-9_]+?)__"
@@ -111,7 +110,7 @@ def _pool_rq4(
     rhat_cols: dict[str, str],
     rn_col: str,
 ) -> pd.DataFrame:
-    """rq4 unbiasedness aggregation per spec §8.2.
+    """rq4 unbiasedness aggregation.
 
     Per-cell: bias_per_cell(c, t, π, kind) = mean_seed( df[rhat_cols[kind]] − df[rn_col] )
     Per-cell SE: sd_seed(rhat − rn) / sqrt(M_c)
@@ -150,7 +149,7 @@ def _pool_rq4(
 
 
 def _pool_rq5(df: pd.DataFrame, *, sq_err_cols: list[str]) -> pd.DataFrame:
-    """rq5 signal MSE aggregation per spec §8.2.
+    """rq5 signal MSE aggregation.
 
     The is_sq and naive_sq columns are pre-computed per-seed at write time
     (R_N already subtracted-then-squared). So step 3 is just per-cell mean
@@ -193,11 +192,11 @@ def _pool_rq6(
     cond_var_col: str,
     rhat_col: str,
 ) -> pd.DataFrame:
-    """rq6 variance comparison aggregation per spec §8.2.
+    """rq6 variance comparison aggregation.
 
     Per cell:
       cond_var_S = mean_seed(df[cond_var_col])  (already computed at write time)
-      emp_var_R  = var(df[rhat_col], ddof=1)    across seeds (data-spec §4.3)
+      emp_var_R  = var(df[rhat_col], ddof=1)    across seeds
     Pool: equal-weight mean across cells per dataset.
     No se_emp_var_R column — sample-variance MC-SE misleading at M_c=50.
     """
@@ -242,10 +241,8 @@ def per_dataset_pool(
     Pipeline:
       1. Annotate dataset/surrogate/target via parse_cell_filename(row.cell).
       2. Drop cells with M_c != expected_M_c per-dataset (WARN, not HALT).
-      3. Per-section computation per spec §8.2.
+      3. Per-section computation.
       4. Output column shape per section.
-
-    See scripts/paper_experiment/aggregation.py for section dispatch logic.
     """
     annotated = _annotate_dataset_pair(per_seed_df)
     filtered = _drop_unequal_M_c(annotated, expected_M_c=expected_M_c)

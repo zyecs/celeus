@@ -351,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         "notes": [
             "No OLS p-values or R^2 are computed; OLS lines are visual guides only.",
-            "eta_bar_B is NaN because stored v0502 trajectory cells do not contain "
+            "eta_bar_B is NaN because the stored trajectory cells do not contain "
             "sampled item identities; deterministic replay would be required for "
             "item-mask restricted conditional variance.",
         ],

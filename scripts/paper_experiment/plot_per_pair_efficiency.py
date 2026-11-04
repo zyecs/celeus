@@ -58,8 +58,8 @@ _Y_LIM = rq1_plot.Y_LIM
 # Methods to mark with median-labels-to-ε markers on the ε hairline.
 _MEDIAN_MARKER_METHODS = ("M1", "ORACLE_ACC")
 _MEDIAN_MARKER_STYLE = rq1_plot._MEDIAN_MARKER_STYLE
-# Pairs to skip in the per-pair grid (presentation knob; doesn't affect
-# the v0504 paper_pair scope or other figures). Empty by default.
+# Pairs to skip in the per-pair grid. Presentation knob only; it does not
+# affect the paper_pair scope or any other figure. Empty by default.
 _EXCLUDED_PAIRS_FOR_GRID: set[tuple[str, str]] = set()
 _FONT_SIZES = {
     "font.size": 13,

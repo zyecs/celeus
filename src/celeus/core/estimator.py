@@ -1,14 +1,12 @@
 """
 CELEUS AIPW estimator.
 
-Implements Draft Eq. (1):
+Computes the per-stratum inferential signal of Eq. (2):
   R_hat_k = surrogate_mean + sum_past_residuals/N_k + (L_t - s_t)/(N_k * q_t)
 
-No clipping — the rescale-then-map-back mechanism in EValueCS handles
-boundedness without sacrificing conditional unbiasedness. [Draft §3.2]
-
-Source: Draft Eq. (1); [Draft Theorem 1].
-CLAUDE.md G1: every formula cites source.
+No clipping is applied. The rescale-then-map-back step in EValueCS keeps the
+signal inside the betting range without breaking the conditional unbiasedness
+of Thm. 3.
 """
 
 from __future__ import annotations
@@ -24,12 +22,12 @@ class AIPWEstimator:
     """
     CELEUS AIPW risk estimator.
 
-    Implements Draft Eq. (1): a mixture of true losses for past
-    labeled items and surrogate scores for unlabeled items, plus a
+    Computes the per-stratum signal of Eq. (2): a mixture of true losses for
+    past labeled items and surrogate scores for unlabeled items, plus a
     single-item correction for the most recently drawn item.
 
-    No clipping is applied — the EValueCS rescaling mechanism handles
-    boundedness without breaking conditional unbiasedness. [Draft §3.2]
+    No clipping is applied; the EValueCS rescaling keeps the signal bounded
+    without breaking conditional unbiasedness.
 
     Parameters
     ----------
@@ -41,10 +39,6 @@ class AIPWEstimator:
         self.u_max = u_max  # retained for API compat; unused
         self.total_output_count: int = 0
 
-    # ------------------------------------------------------------------
-    # Update
-    # ------------------------------------------------------------------
-
     def update_stratum(
         self,
         stratum: StratumState,
@@ -55,7 +49,7 @@ class AIPWEstimator:
         """
         Update stratum state with newly acquired labels.
 
-        Implements Paper v0320 Eq. (1):
+        Implements Eq. (2) restricted to one stratum:
           R_hat_k = surrogate_mean + sum_past_residuals/N_k + (L_t - s_t)/(N_k * q_t)
 
         For batches of n_new > 1 items, processes sequentially: each item's
@@ -77,9 +71,7 @@ class AIPWEstimator:
         Returns
         -------
         float
-            Updated R_hat_k. [Paper v0320 Eq. (1)]
-
-        Source: Paper v0320 Eq. (1); spec/equations.md Eq. (1).
+            Updated R_hat_k.
         """
         n_new = len(new_local_indices)
         if n_new == 0:
@@ -96,15 +88,14 @@ class AIPWEstimator:
 
             residual = loss - s
 
-            # v0320 Eq. (1): mixture + single-item correction
-            # [Paper v0320 Eq. (1); spec/equations.md Eq. (1')]
+            # Mixture plus single-item correction.
             R_hat_k = (
                 stratum.surrogate_mean
                 + stratum.sum_past_residuals / N_k
                 + residual / (N_k * q)
             )
 
-            # Update running sum for NEXT round [Eq. (1') incremental]
+            # Update the running residual sum for the next round.
             stratum.sum_past_residuals += residual
 
             # Record history
@@ -117,21 +108,15 @@ class AIPWEstimator:
         stratum.R_hat_k = R_hat_k
         return stratum.R_hat_k
 
-    # ------------------------------------------------------------------
-    # Aggregate
-    # ------------------------------------------------------------------
-
     def aggregate(self, strata: List[StratumState]) -> float:
         """
         Aggregate per-stratum estimates into a global R_hat.
 
-        R_hat = Σ_k w_k * R_hat_k   [Draft Eq. (1), aggregation]
+        R_hat = Σ_k w_k * R_hat_k
 
         No clipping — the EValueCS rescaling handles boundedness.
-        R_hat may exceed [0, 1] due to AIPW correction; this is expected.
-        [Draft §3.2: rescale-then-map-back preserves unbiasedness]
-
-        Source: Draft Eq. (1); Draft Theorem 1.
+        R_hat may fall outside [0, 1] because of the correction term; that is
+        expected. Rescale-then-map-back in EValueCS preserves unbiasedness.
         """
         r_hat = sum(s.w_k * s.R_hat_k for s in strata)
         self.total_output_count += 1
@@ -143,8 +128,6 @@ class AIPWEstimator:
 
         Returns the sum of all past observed losses and the surrogate scores
         of all remaining (unlabeled) items across all strata.
-
-        Source: Paper v0414 §3.2, Eqs. (4a)-(4b).
         """
         sum_past_losses = 0.0
         remaining_surrogates = []
@@ -162,10 +145,6 @@ class AIPWEstimator:
             "sum_past_losses": sum_past_losses,
             "remaining_surrogate_scores": remaining_surrogate_scores,
         }
-
-    # ------------------------------------------------------------------
-    # Diagnostic properties
-    # ------------------------------------------------------------------
 
     @property
     def weight_clip_rate(self) -> float:

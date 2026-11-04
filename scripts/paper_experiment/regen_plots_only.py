@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Re-render rq4-rq6 figures from existing per_seed_curves.csv.
 
-Use after editing plot_style.py or fixing layouts — bypasses the SLURM
-data-layer job. Wallclock target: <30s for all 8 PDFs.
+Use after editing plot_style.py or fixing layouts. This bypasses the SLURM
+data-layer job and renders all 8 PDFs in under 30 s.
 
 Usage from project root:
   PYTHONPATH=. python scripts/paper_experiment/regen_plots_only.py
@@ -11,8 +11,6 @@ Usage from project root:
   PYTHONPATH=. python scripts/paper_experiment/regen_plots_only.py --greyscale-preview
   PYTHONPATH=. python scripts/paper_experiment/regen_plots_only.py --out-suffix v2
   PYTHONPATH=. python scripts/paper_experiment/regen_plots_only.py --purge-deprecated
-
-Per spec §7 (commit 4c5596c).
 """
 from __future__ import annotations
 

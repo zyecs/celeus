@@ -1,8 +1,4 @@
-"""
-CELEUS acquisition policies.
-
-Source: Spec §2.4; Blueprint §1.2 (acquisition module).
-"""
+"""CELEUS acquisition policies."""
 
 from celeus.acquisition.base import AcquisitionPolicy
 from celeus.acquisition.residual_variance import ResidualVarianceAcquisition

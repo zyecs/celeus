@@ -1,19 +1,21 @@
 """
-Residual-magnitude acquisition policy — Theorem 5 form with Remark 1
-label-free proxies.
+Residual-magnitude acquisition policy with label-free loss proxies.
 
-Implements the practical oracle proposal:
+The proposal mixes a probability floor with a term proportional to the
+absolute residual between the label-free loss proxy and the surrogate score:
 
     q_t(j) = alpha + (1 - N_rem*alpha) * |ell_proxy(j) - hat_ell(j)|
                                          / sum_s |ell_proxy(s) - hat_ell(s)|
 
-with alpha = beta_min / N_k, and a uniform fallback when the residuals
-sum is below 1e-12 or when N_rem*alpha >= 1.
+with alpha = beta_min / N_k. The implemented floor is therefore beta_min/N_k
+per remaining item, while the paper's Eq. (8) uses beta/m_t + (1 - beta) p_t;
+the two coincide only when the remaining count equals N_k. A uniform fallback
+applies when the residual sum is below 1e-12 or when N_rem*alpha >= 1.
 
-Source: tmp/draft_celeus_v0410.tex Theorem 5 (thm:optimal, lines 411-420),
-Theorem 4 (thm:consistency, lines 404-406), Remark 1 (lines 433-453),
-all-zero remark (line 422).
-CLAUDE.md G1: every formula cites source; Rule 5: rng passed explicitly.
+Theorem 4 motivates sampling proportionally to the residual magnitude, and
+Assumption 2 requires a probability floor. The label-free proxies are the
+0-1 loss strategies of Remark 1 (config prefix `remark2_`) and the
+cross-entropy strategies of Remark 2 (config prefix `remark1_`).
 """
 
 from __future__ import annotations
@@ -30,11 +32,9 @@ class ResidualMagnitudeAcquisition(AcquisitionPolicy):
     """
     Sample proportionally to |ell_proxy - hat_ell| with a beta_min/N_k floor.
 
-    Reads `stratum.ell_proxy` and `stratum.surrogate_scores`. Requires both
-    to be populated; raises RuntimeError otherwise — the caller (loader)
-    must set `ell_proxy` for any `remark1_*` surrogate_type.
-
-    Source: draft Theorem 5 lines 411-420, Remark 1 lines 433-453.
+    Reads `stratum.ell_proxy` and `stratum.surrogate_scores`. Both must be
+    populated; the policy raises RuntimeError otherwise. The loader sets
+    `ell_proxy` for every `remark1_*` and `remark2_*` surrogate_type.
     """
 
     def __init__(self, beta_min: float = 0.05) -> None:
@@ -45,20 +45,14 @@ class ResidualMagnitudeAcquisition(AcquisitionPolicy):
         stratum: StratumState,
     ) -> np.ndarray:
         """
-        Compute initial (step-0) proposal distribution over remaining items.
+        Compute the step-0 proposal distribution over remaining items.
 
-        Helper extracted from select() to expose the first-draw probabilities.
-        Returns shape (|remaining|,) array of probabilities summing to 1.
+        Returns a shape (|remaining|,) array of probabilities summing to 1,
+        or np.empty(0, dtype=np.float64) when nothing remains.
 
-        When remaining is empty, returns np.empty(0, dtype=np.float64).
-
-        Requires stratum.ell_proxy to be populated; raises RuntimeError otherwise.
-
-        Source: draft Theorem 5 lines 411-420, Remark 1 lines 433-453.
+        Requires stratum.ell_proxy; raises RuntimeError otherwise.
         """
-        # Stage 13: ell_proxy is added to StratumState in Task 4. For now,
-        # we read via getattr so the policy works both before and after the
-        # field exists.
+        # ell_proxy is an optional StratumState field, so read it with getattr.
         ell_proxy = getattr(stratum, "ell_proxy", None)
         if ell_proxy is None:
             raise RuntimeError(
@@ -76,11 +70,10 @@ class ResidualMagnitudeAcquisition(AcquisitionPolicy):
 
         alpha = self.beta_min / stratum.N_k
 
-        # Compute initial probabilities.
-        # [Draft Theorem 5 + Theorem 4 floor; spec §3.4]
+        # Probability floor plus residual-proportional mass.
         if N_rem * alpha >= 1.0:
-            # Degenerate: floor consumes entire mass. Fall back to uniform
-            # to match legacy guard at surrogate_entropy.py:99.
+            # Degenerate: the floor consumes the entire mass. Fall back to
+            # uniform, matching the guard in surrogate_entropy.py.
             pool_probs = np.full(N_rem, 1.0 / N_rem)
         else:
             ell_proxy_rem = ell_proxy[remaining]
@@ -88,8 +81,8 @@ class ResidualMagnitudeAcquisition(AcquisitionPolicy):
             residuals = np.abs(ell_proxy_rem - hat_ell_rem)
             score_sum = residuals.sum()
             if score_sum < 1e-12:
-                # All residuals effectively zero — draft line 422 says the
-                # choice of proposal distribution is immaterial; pick uniform.
+                # All residuals are effectively zero, so every item carries the
+                # same correction and the proposal does not matter. Use uniform.
                 pool_probs = np.full(N_rem, 1.0 / N_rem)
             else:
                 pool_probs = alpha + (1.0 - N_rem * alpha) * (residuals / score_sum)
@@ -107,10 +100,9 @@ class ResidualMagnitudeAcquisition(AcquisitionPolicy):
         if n_select == 0:
             return np.array([], dtype=int), np.array([], dtype=np.float64)
 
-        # Compute initial probabilities
         pool_probs = self._compute_initial_probs(stratum)
 
-        # Sequential WOR loop (identical in structure to SurrogateEntropyAcquisition).
+        # Sequential without-replacement draws; renormalize after each removal.
         pool = remaining.copy()
         chosen_local = np.empty(n_select, dtype=int)
         q_values = np.empty(n_select, dtype=np.float64)
@@ -134,28 +126,26 @@ class ResidualMagnitudeAcquisition(AcquisitionPolicy):
         """
         Return the current proposal distribution over unlabeled items.
 
-        Unlike select(), this does NOT draw. It exposes the probability mass
-        function q_t(j | F_{t-1}, D_N) that select() would use on its first draw.
-        Needed by rq4-rq6 replay analysis to compute conditional variances over
-        the pool at step-0 (before within-batch sequential renormalization).
+        Unlike select(), this does not draw. It exposes the probability mass
+        function that select() would use on its first draw. The replay
+        diagnostics need it to compute conditional variances over the pool at
+        step 0, before the within-batch sequential renormalization.
 
-        The G4 coupling (n_select == 1) ensures this step-0 distribution is
-        all that's needed — no information about subsequent draws within a batch
-        is required. [rq4-rq6 spec §4.3; design §5.6]
+        Replay runs with n_select == 1, so the step-0 distribution is all that
+        is required.
 
         Parameters
         ----------
         stratum : StratumState
             Current stratum state, with ell_proxy populated by the loader.
         n_k : int
-            Requested number of draws; unused (honoured for signature parity).
+            Requested number of draws; unused (kept for signature parity).
 
         Returns
         -------
         pool_probs : np.ndarray
             Shape (|remaining|,) float64 probability mass function.
-            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when remaining is empty.
-
-        Source: rq4-rq6 design §5.6 + §4.3.
+            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when
+            remaining is empty.
         """
         return self._compute_initial_probs(stratum)

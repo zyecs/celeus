@@ -5,21 +5,21 @@ Usage:
   python scripts/run_paper_experiment.py --stage <STAGE> [--index <N>] [--config <PATH>]
 
 Where <STAGE> is one of:
-  compute-rn       — Compute R_N.csv across all (dataset,target,loss) combos.
-  disk-audit       — Verify disk/inode budget + input readability (spec §9 Stage 0.5).
-  cereval-fresh    — Stage 0: M5 fresh sweep (60 cells × 50 seeds).
-  smoke            — Stage 1: smoke test (1 cell × 3 seeds × 4 methods).
-  ce-sweep         — Stage 2: CE surrogate mini-sweep (90 cells).
-  main-accuracy    — Stage 3: M1–M4 × 3 datasets × 10 pairs × accuracy (120 cells).
-  main-ce          — Stage 4: same, CE loss (120 cells). Reads ce_sweep_winner.json.
-  beta-sweep       — Stage 5: β-sensitivity regen (72 cells).
+  compute-rn       — Compute R_N.csv across all (dataset, target, loss) combos.
+  disk-audit       — Verify the disk and inode budget, and that inputs are readable.
+  cereval-fresh    — Cer-Eval (M5) fresh sweep (60 cells × 50 seeds).
+  smoke            — Smoke test (1 cell × 3 seeds × 4 methods).
+  ce-sweep         — CE surrogate mini-sweep (90 cells).
+  main-accuracy    — M1–M4 × 3 datasets × 10 pairs × accuracy (120 cells).
+  main-ce          — Same with CE loss (120 cells). Reads ce_sweep_winner.json.
+  beta-sweep       — β-sensitivity regen (72 cells).
   oracle-accuracy  — Accuracy-only oracle acquisition upper-bound (30 cells, 300 chunked assignments).
-  acquisition-sweep — §6.5 item #3: strategy sweep on 6 cells × 15 seeds. Requires --loss.
-  hparam-sweep      — §6.5 item #4: hyperparam OAT sweep on 4 cells × 7 configs × 10 seeds (accuracy-only).
-  wallclock         — §6.5 item #5: Cer-Eval per-round timing on 4 cells × 5 seeds (accuracy-only).
-  merge-cells      — Consolidate subcells into bundled .npz (spec §4 bundling).
-  merge-oracle-accuracy — Consolidate oracle subcells into bundled .npz.
-  analyze          — Stage 6: build summary.csv + figures + tables.
+  acquisition-sweep — Strategy sweep on 6 cells × 15 seeds. Requires --loss.
+  hparam-sweep      — Hyperparameter sweep on 4 cells × 7 configs × 10 seeds (accuracy-only).
+  wallclock         — Cer-Eval per-round timing on 4 cells × 5 seeds (accuracy-only).
+  merge-cells      — Consolidate sub-cells into bundled .npz files.
+  merge-oracle-accuracy — Consolidate oracle sub-cells into bundled .npz files.
+  analyze          — Build summary.csv, figures and tables.
 """
 from __future__ import annotations
 
@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from celeus.paper_experiment.config import default_config_path, load_config
     from celeus.paper_experiment import stages
-    # If the user didn't pass --config, honor CELEUS_PE_CONFIG (v0504 build path).
+    # If the caller did not pass --config, honour CELEUS_PE_CONFIG.
     if args.config == Path("configs/paper_experiment.yaml"):
         args.config = default_config_path()
 

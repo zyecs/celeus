@@ -1,14 +1,15 @@
-# src/celeus/paper_experiment/cell_schema.py
-"""Cell-bundled .npz schema (paper_experiment spec §4).
+"""Schema of the bundled per-cell ``.npz`` file.
 
-v2 fields added (over v1):
-  - did_stop: bool — whether pop_w ever crossed epsilon.
-  - width_at_stop: float — CS width at the first-crossing index; NaN if never.
-  - pop_inverted_count: int — number of rounds where pop_lower > pop_upper
-    (pool-feasibility conflict at early t, diagnostic only).
-  - pool_sha256: str — SHA-256 of the first-permutation pool indices (spec §9).
-  - config_json: str — JSON-serialised full run config (spec §8).
-Analysis code MUST filter on ``did_stop=True`` before aggregating
+One file holds every seed of one cell. Per-seed trajectories are stored as
+``(n_seeds, T_max)`` arrays, per-seed scalars as length-``n_seeds`` arrays, and
+the cell metadata under ``meta__*`` keys. Fields worth calling out:
+  - did_stop: bool — whether the population width ever crossed epsilon.
+  - width_at_stop: float — width at the first crossing; NaN if it never crossed.
+  - pop_inverted_count: int — rounds where pop_lower > pop_upper, which the
+    pool-feasibility clipping can produce at small t (diagnostic only).
+  - pool_sha256: str — SHA-256 of the first-permutation pool indices.
+  - config_json: str — the full run config, serialised as JSON.
+Analysis code MUST filter on ``did_stop=True`` before it aggregates
 ``coverage_at_stop`` / ``labels_to_stop`` / ``width_at_stop``.
 """
 from __future__ import annotations
@@ -23,9 +24,9 @@ import numpy as np
 _TRAJ_FLOAT_KEYS = ("celeus_rhat", "celeus_lo", "celeus_hi",
                     "base_rhat", "base_lo", "base_hi")
 _TRAJ_INT_KEYS = ("celeus_labels", "base_labels")
-# Variable-length float trajectory key (only populated for M5 / Cer-Eval).
+# Variable-length float trajectory key, populated only by Cer-Eval (M5).
 # Padded to T_max with NaN; an all-NaN row decodes back to ``None`` because
-# non-M5 methods do not produce per-round timing. (paper §6.5 item #5, Task 9).
+# the other methods do not produce per-round timing.
 _TRAJ_OPTIONAL_FLOAT_KEYS = ("round_times",)
 _PER_SEED_FLOAT_SCALARS = (
     "true_R", "rho", "final_width", "width_at_stop", "elapsed_seconds",
@@ -34,11 +35,11 @@ _PER_SEED_INT_SCALARS = ("labels_to_stop", "pop_inverted_count")
 _PER_SEED_BOOL_SCALARS = ("coverage_at_stop", "ever_miss", "did_stop")
 _PER_SEED_STR_SCALARS = ("git_commit", "hostname")
 
-# Sentinels used to round-trip Optional[float] / Optional[int] through npz
+# Sentinels that round-trip Optional[float] / Optional[int] through npz
 # serialization. np.savez_compressed under allow_pickle=False cannot store a
-# Python None (it would become an object-dtype array at save time and fail
-# at load time). We encode absence as NaN for floats and -1 for ints, then
-# decode back to None in load_cell.
+# Python None: it would become an object-dtype array at save time and fail
+# at load time. Absence is encoded as NaN for floats and -1 for ints, and
+# decoded back to None in load_cell.
 _FLOAT_ABSENT = float("nan")
 _INT_ABSENT = -1
 
@@ -66,12 +67,11 @@ class PerSeedResult:
     elapsed_seconds: float
     git_commit: str
     hostname: str
-    # Paper §6.5 item #5 (Task 9): per-iteration wall-clock for Cer-Eval (M5).
-    # Variable-length raw values (one entry per Cer-Eval ``while True:`` round).
-    # Padded to T_max with NaN at serialization for npz round-trip; trailing
-    # NaNs encode "not recorded" (loop exited earlier). ``None`` for non-M5
-    # methods — those record per-method timing via ``elapsed_seconds`` /
-    # ``labels_to_stop`` already.
+    # Per-iteration wall-clock for Cer-Eval (M5), one entry per round of its
+    # sampling loop. Padded to T_max with NaN for the npz round-trip, so
+    # trailing NaNs mean "not recorded" (the loop exited earlier). ``None``
+    # for the other methods, which report timing through ``elapsed_seconds``
+    # and ``labels_to_stop``.
     round_times: Optional[np.ndarray] = None
 
 
@@ -219,8 +219,8 @@ def load_cell(path: Path) -> tuple[CellMetadata, dict[int, PerSeedResult]]:
         meta_dict = {
             k.removeprefix("meta__"): f[k] for k in f.files if k.startswith("meta__")
         }
-        # Round-trip CE NLL filter audit fields: sentinel → None.
-        # Absent keys (pre-v8 cells) default to None via .get().
+        # Round-trip CE NLL filter audit fields: sentinel to None.
+        # Cells written before these fields existed lack the keys entirely.
         thr_arr = meta_dict.get("ce_nll_filter_threshold")
         kept_arr = meta_dict.get("ce_nll_filter_kept")
         orig_arr = meta_dict.get("ce_nll_filter_original_n")
@@ -264,8 +264,8 @@ def load_cell(path: Path) -> tuple[CellMetadata, dict[int, PerSeedResult]]:
             + _PER_SEED_FLOAT_SCALARS + _PER_SEED_INT_SCALARS
             + _PER_SEED_BOOL_SCALARS + _PER_SEED_STR_SCALARS
         )}
-        # Optional variable-length trajectories (Task 9). Pre-Task-9 cells
-        # don't have this key; ``.get()`` defaults to None which decodes to
+        # Optional variable-length trajectories. Cells written before
+        # round_times existed lack this key, which decodes to
         # ``round_times=None`` per seed.
         opt_buf = {
             k: f[k] for k in _TRAJ_OPTIONAL_FLOAT_KEYS if k in f.files

@@ -1,8 +1,7 @@
-"""Pure metric functions for rq4-rq6 estimator diagnostics.
+"""Pure metric functions for the estimator diagnostics.
 
 All functions are side-effect-free and operate on ReplayedTrajectory
 objects produced by celeus.analysis.replay.
-
 """
 from __future__ import annotations
 
@@ -19,7 +18,7 @@ def estimator_bias_terms(
 ) -> dict:
     """LURE-weighted and unweighted R̂_t at every t in t_grid.
 
-    Formula (rq4-rq6 design §4.1 / draft_celeus_v0422-a.tex:665-683):
+    Uses the LURE weights of Eq. (5):
 
         u_{m,t} = 1 + (N-t)/(N-m) * (1/((N-m+1)*q_m) - 1)
         R_hat_lure_t        = ell_hat_bar + (1/t) * Σ_m u_{m,t} * (ell_m - ell_hat_m)
@@ -29,8 +28,6 @@ def estimator_bias_terms(
     np.ndarray of shape t_grid.shape.
 
     For t values exceeding len(traj.steps), NaN is returned for that entry.
-
-    Source: rq4-rq6 design §4.1; draft_celeus_v0422-a.tex:665-683.
     """
     t_grid = np.asarray(t_grid, dtype=np.int64)
     N = traj.N
@@ -71,7 +68,7 @@ def signal_sequence(
 ) -> dict:
     """IS-corrected signal S_hat_t and naive signal ell_t at every t in t_grid.
 
-    Formula (rq4-rq6 design §4.2 / draft_celeus_v0422-a.tex:709-722):
+    S_hat_t is the inferential signal of Eq. (2):
 
         S_hat_t = (Σ_{m=1..t-1} ell_m + Σ_{j ∈ J_{t-1}} ell_hat[j]) / N
                   + (ell_t - ell_hat_t) / (N * q_t(i_t))
@@ -80,9 +77,8 @@ def signal_sequence(
 
     where J_{t-1} = [N] \ {i_1, ..., i_{t-1}}.
 
-    Returns dict with 'S_hat' and 'naive', shape t_grid.shape.
-
-    Source: rq4-rq6 design §4.2 (typo fix: both targeted at R_N, not R).
+    Returns dict with 'S_hat' and 'naive', shape t_grid.shape. Both target the
+    pool risk R_N, not the population risk R.
     """
     t_grid = np.asarray(t_grid, dtype=np.int64)
     N = traj.N
@@ -133,11 +129,10 @@ def _compute_proposal_over_J(
                            the loader via surrogate_type="remark2_oracle_strategy4").
       - 'uniform':         ell_proxy_full is ignored (may be None).
 
-    F7 fix: previously this function took ``ell_full`` (ground truth) and used
-    it as the proxy for ada cells — mathematically wrong. ada replay must
-    reconstruct q_t(j) from the SURROGATE-derived proxy the campaign actually
-    consumed. Callers now pass ``traj.ell_proxy_full`` which is populated from
-    ``pool.ell_proxy`` (see replay.replay_trajectory + rq4-rq6 design §4.3).
+    The proxy matters: an 'ada' replay that used ground truth here would
+    reconstruct a different proposal from the one the campaign actually drew
+    from. Callers pass ``traj.ell_proxy_full``, which replay_trajectory fills
+    from ``pool.ell_proxy``.
 
     Returns a shape (|J_remaining|,) array of floats that sum to 1.
     """
@@ -170,17 +165,15 @@ def conditional_variance_signal(
 ) -> float:
     """Conditional variance of S_hat_t given F_{t-1}.
 
-    Formula (rq4-rq6 design §4.3 / draft_celeus_v0422-a.tex:743-755):
+    Thm. 3 gives the conditional variance of the signal:
 
         Var(S_hat_t | F_{t-1}) = Σ_{j ∈ J_{t-1}} r_j^2 / (N^2 * q_t(j))
                                  - (Σ_{j ∈ J_{t-1}} r_j / N)^2
 
-    where r_j = ell(f(x_j), y_j) - ell_hat(f(x_j), x_j), USING GROUND-TRUTH
+    where r_j = ell(f(x_j), y_j) - ell_hat(f(x_j), x_j), using GROUND-TRUTH
     losses in the residual numerator. The proposal q_t(j), however, is
-    reconstructed from the campaign's actual acquisition proxy — for ada
-    that is the surrogate-derived proxy, not ground truth (F7 fix).
-
-    Source: rq4-rq6 design §4.3.
+    reconstructed from the acquisition proxy the campaign actually used; for
+    'ada' that is the surrogate-derived proxy, not ground truth.
     """
     q_t = _compute_proposal_over_J(
         ell_proxy_full=ell_proxy_full, ell_hat_full=ell_hat_full,
@@ -196,8 +189,6 @@ def empirical_variance_rhat(rhats_by_seed: np.ndarray) -> np.ndarray:
     """Sample variance across seeds (ddof=1).
 
     Input shape (M_seeds, G); output shape (G,).
-
-    Source: rq4-rq6 design §4.3.
     """
     return rhats_by_seed.var(axis=0, ddof=1)
 
@@ -205,8 +196,8 @@ def empirical_variance_rhat(rhats_by_seed: np.ndarray) -> np.ndarray:
 def estimator_aipw_running(traj: ReplayedTrajectory) -> np.ndarray:
     """Replay the campaign's AIPW running estimate step by step.
 
-    Matches the single-stratum (K=1, N_k=N) formula from
-    `src/celeus/core/estimator.py:5` and `:103-108`:
+    Matches the single-stratum (K=1, N_k=N) formula in
+    ``celeus.core.estimator``:
 
         R_hat_t = surrogate_mean + sum_past_residuals/N + (ell_t - hat_t) / (N * q_t)
         sum_past_residuals_{t+1} = sum_past_residuals_t + (ell_t - hat_t)
@@ -225,14 +216,12 @@ def estimator_aipw_running(traj: ReplayedTrajectory) -> np.ndarray:
     r_hat : np.ndarray, shape (len(traj.steps),)
         The AIPW running estimate after each of the T steps. Intended for
         trajectory-equivalence comparison against the campaign's stored
-        celeus_rhat array (rq4-rq6 design §8 gate).
+        celeus_rhat array.
 
-    NOTE: This differs from `estimator_bias_terms["R_hat_lure"]` (which
-    implements the LURE re-weighting for §6.2.3 bias analysis). The two
-    are mathematically distinct; this function exists solely for replay
-    bit-exactness validation, not for any statistical claim in the paper.
-
-    Source: src/celeus/core/estimator.py:5 + :103-108 single-stratum form.
+    NOTE: This differs from `estimator_bias_terms["R_hat_lure"]`, which
+    applies the LURE re-weighting. The two are mathematically distinct; this
+    function exists for replay bit-exactness checks, not for any statistical
+    claim in the paper.
     """
     N = traj.N
     T = len(traj.steps)

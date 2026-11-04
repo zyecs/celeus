@@ -1,4 +1,4 @@
-"""Render OAT hyperparameter sensitivity (label app:beta-sensitivity).
+"""Render the one-at-a-time hyperparameter sensitivity appendix.
 
 Produces three artifacts under ``<out_root>/hparam_appendix/``:
 
@@ -17,8 +17,8 @@ Produces three artifacts under ``<out_root>/hparam_appendix/``:
   perturbation, averaged across the four cells.
 
 Source rows: ``summary.csv`` filtered to
-``source == "trajectories/hparam_sweep"``. Hparam stage is
-accuracy-only; we ignore the ``loss`` column except as a sanity check.
+``source == "trajectories/hparam_sweep"``. The hparam stage is
+accuracy-only, so the ``loss`` column serves only as a sanity check.
 """
 from __future__ import annotations
 

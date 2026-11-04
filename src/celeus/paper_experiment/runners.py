@@ -1,4 +1,4 @@
-"""Per-seed method runner wrappers for M1-M5 (paper_experiment spec section 2).
+"""Per-seed runner wrappers for the methods M1-M5.
 
 Both entry points (``run_celeus_method_for_seed`` and ``run_cereval_for_seed``)
 call ``spawn_role_rngs(seed)`` internally and pass the spawned Generators
@@ -30,17 +30,16 @@ def _pad_traj(traj: dict, T: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, n
 
 
 def _count_pop_inversions(lo: np.ndarray, hi: np.ndarray) -> int:
-    """Count pop_lower > pop_upper rows (diagnostic only - do not clamp).
+    """Count rows where pop_lower > pop_upper. Diagnostic only; do not clamp.
 
-    CELEUS's maintained EValueCS is monotone-valid by construction; inversions
-    only arise from pool_feasibility_intersection conflicts (an early-
-    trajectory pathology where the CS disagrees with labeled observations).
-    Spec section 9's original "clamp to [0, 1]" rule is unsafe for CE loss
-    (where R_N can exceed 1, turning a numerical pathology into a false
-    miscoverage). Instead we record the inversion count so downstream QC can
-    flag it, but leave the trajectory arrays untouched. Analysis code skips
-    inverted rows via the ``hi >= lo`` mask. This is a deliberate deviation
-    from spec section 9; see v2 changelog item I3.
+    The maintained confidence sequence of CELEUS is valid at every round by
+    construction, so an inversion can only come from the intersection with the
+    pool-feasibility bounds, an early-trajectory pathology where the sequence
+    disagrees with the labelled observations. Clamping the pair to [0, 1] is
+    unsafe for the cross-entropy loss, where R_N can exceed 1: it would turn a
+    numerical pathology into an apparent miscoverage. The count is recorded so
+    that downstream checks can flag it, and the trajectory arrays stay
+    untouched. Analysis code skips inverted rows with the ``hi >= lo`` mask.
     """
     return int(np.sum(lo > hi))
 
@@ -178,9 +177,8 @@ def run_cereval_for_seed(
     traj = bl.run()
     elapsed = time.time() - t0
 
-    # Paper §6.5 item #5 (Task 9): preserve raw per-iteration wall-clock.
-    # ``traj.get`` keeps backwards compatibility with older trajectory dicts
-    # that lacked the key (pre-Task-9 fixture data).
+    # Keep the raw per-iteration wall-clock of Cer-Eval. Trajectory dicts
+    # written before this field existed have no such key.
     round_times_raw = traj.get("round_times")
     if round_times_raw is not None:
         round_times_arr = np.asarray(round_times_raw, dtype=np.float64)

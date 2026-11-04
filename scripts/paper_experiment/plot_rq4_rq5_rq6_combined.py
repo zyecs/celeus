@@ -11,9 +11,8 @@ Layout: 3 dataset rows × 3 metric cols.
               Curves: ada, oracle, uniform.
               (Empirical Var(R_hat_t) is intentionally excluded.)
 
-Bands show **mean ± 1·SD-between** (standard deviation across cells), matching
-the user's request for mean ± std rather than the ±2·MC-SE bands used by the
-2-column rq4-rq5 figure. SD columns:
+Bands show **mean ± 1·SD-between** (standard deviation across cells), not the
+±2·MC-SE bands of the 2-column rq4-rq5 figure. SD columns:
   rq4: SD_between
   rq5: SD_between_is, SD_between_naive
   rq6: sd_between_cond_var_S

@@ -1,4 +1,4 @@
-"""Refuse to run on login nodes (per spec §9 Stage 1)."""
+"""Refuse to run on login nodes."""
 from __future__ import annotations
 
 import socket

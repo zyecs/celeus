@@ -85,9 +85,10 @@ def build_outcomes(
                 "target": target,
                 "eta_bar_full": float(np.nanmean(list(anchor_etas.values()))),
                 **{f"eta_{t}": anchor_etas[t] for t in anchors},
-                # Stored trajectories lack item identities; B-split variance
-                # recomputation requires deterministic acquisition replay and
-                # is intentionally flagged in manifest.json by the plot script.
+                # Stored trajectories do not keep item identities, so the
+                # B-split variance would need a deterministic replay of the
+                # acquisition. The plot script records this gap in
+                # manifest.json.
                 "eta_bar_B": float("nan"),
             }
         )

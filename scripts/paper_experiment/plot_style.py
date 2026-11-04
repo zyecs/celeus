@@ -31,11 +31,9 @@ def apply_rc():
     )
 
 
-# ---------------------------------------------------------------------------
-# rq4-rq6 plotting enhancement (spec 2026-04-25, commit 4c5596c).
-# Tol-muted palette, semantic acquisition / kind / pair mappings,
-# Helvetica-family typography via TeX-Gyre-Heros fallback chain.
-# ---------------------------------------------------------------------------
+# Styling for the rq4-rq6 figures: Tol muted palette, semantic acquisition and
+# kind and pair mappings, Helvetica-family typography through the
+# TeX-Gyre-Heros fallback chain.
 
 import logging
 
@@ -64,9 +62,10 @@ KIND_LINESTYLE = {
     "naive":        {"linestyle": "--", "linewidth": 1.2, "label": r"naive $\ell_{i_t}$"},
 }
 
-# Hand-picked demo pairs used in showcase.pdf views — same 3 pairs across all
-# 3 datasets and all 4 sections. CIE Lab L* gaps: indigo↔sand=60, sand↔wine=26,
-# indigo↔wine=33 — all >15, satisfying the §4.3 greyscale luminance test.
+# Hand-picked demo pairs used in the showcase.pdf views: the same 3 pairs
+# across all 3 datasets and all 4 sections. CIE Lab L* gaps are
+# indigo-sand 60, sand-wine 26, indigo-wine 33, all above 15, so the panels
+# stay readable in greyscale.
 #
 # Sand is reused from ACQUISITION_STYLE["oracle_accuracy"] but never collides
 # inside showcase: showcase legends label sand as the model-pair; pooled
@@ -189,9 +188,9 @@ def finalize_panel(ax, *, dataset: str = "", ylabel=None,
     ax.grid(False)
 
 
-# --- runtime overrides -----------------------------------------------------
-# regen_plots_only.py propagates --font / --no-bands / --pairs through these
-# environment variables; plot scripts and apply_rc_helvetica honour them.
+# Runtime overrides. regen_plots_only.py passes --font / --no-bands / --pairs
+# through these environment variables; the plot scripts and
+# apply_rc_helvetica honour them.
 
 def bands_enabled() -> bool:
     """Return False iff `CELEUS_PLOT_NO_BANDS` is truthy ('1', 'true', etc.)."""
@@ -214,7 +213,7 @@ def get_runtime_pairs(default_pairs: list[dict] = PAIR_DEFS) -> list[dict]:
     return [p for p in default_pairs if p["slot"] in wanted]
 
 
-# Color cycle for v0502 paper_pair_defs() — 4 muted-Tol colors that work
+# Color cycle for paper_pair_defs(): 4 muted-Tol colors that work
 # alongside ACQUISITION_STYLE (which uses indigo/sand for ada/oracle).
 _PAPER_PAIR_COLORS = [
     TOL_MUTED["indigo"],

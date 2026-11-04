@@ -1,4 +1,4 @@
-"""Render wall-clock appendix (v0504-compatible).
+"""Render the wall-clock appendix.
 
 Produces ``<out_root>/wallclock_appendix/tab_per_round.tex``: a 2-method
 comparison (CELEUS / IID+EValue) x N wallclock cells, listing
@@ -8,11 +8,10 @@ seconds-per-round.
   averaged across seeds (rows pulled from summary.csv; M1 / M4; the
   N wallclock cells x cfg.wallclock['seeds']).
 
-Wallclock data is scope-agnostic (was set in advance for cell-cost
-characterization, independent of paper_pair selection). When ``--out-root``
-points at a snapshot dir like ``results/paper_outputs``, we still
-read the timing rows from the canonical ``paper_experiment/summary.csv``
-unless ``--summary-root`` overrides.
+The wall-clock cells are fixed in the config and do not depend on the
+paper-pair selection. When ``--out-root`` points at a snapshot directory such
+as ``results/paper_outputs``, the timing rows still come from the canonical
+``paper_experiment/summary.csv``, unless ``--summary-root`` overrides it.
 
 Cer-Eval (M5) is intentionally omitted (paper scope).
 """

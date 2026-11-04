@@ -2,9 +2,6 @@
 AllocationStrategy abstract base class for CELEUS.
 
 Defines the interface for per-stratum budget allocation strategies.
-
-Source: plan-final.md §3.2; Spec §6.3 AL1-AL2.
-CLAUDE.md G1: every formula cites source.
 """
 
 from __future__ import annotations
@@ -27,8 +24,6 @@ def _proportional_round(
     Parameters: raw_weights (K,) float, B_round int, capacities (K,) int.
     Returns: (K,) int array with sum <= B_round, each <= capacity.
     Deterministic tie-breaking via stable argsort.
-
-    [DERIVED — verify]: largest-remainder method for integer allocation.
     """
     K = len(raw_weights)
 
@@ -39,16 +34,14 @@ def _proportional_round(
     # Guard 2: effective budget cannot exceed total remaining capacity
     B_eff = min(B_round, int(np.sum(capacities)))
 
-    # Normalize raw_weights to sum to B_eff
     total_w = np.sum(raw_weights)
-    proportions = raw_weights / total_w * B_eff  # [DERIVED — verify]
+    proportions = raw_weights / total_w * B_eff
 
-    # Floor allocation, capped by capacity
     alloc = np.minimum(np.floor(proportions).astype(int), capacities)
 
     # Distribute remainder by largest fractional part
     remainder = B_eff - np.sum(alloc)
-    fractional = proportions - alloc  # [DERIVED — verify]
+    fractional = proportions - alloc
 
     # Zero out fractional for capacity-full strata
     fractional[alloc >= capacities] = -1.0
@@ -68,12 +61,10 @@ class AllocationStrategy(ABC):
 
     Subclasses implement allocate() to distribute B_round labels across K strata.
 
-    Invariants enforced [Spec §6.3 AL1-AL2]:
+    Invariants enforced:
       AL1: sum(n_k) <= B_round  (total budget consumed — may be less if pool exhausted)
       AL2: n_k <= N_k - M_k for all k  (cannot over-allocate beyond capacity)
       AL3: n_k >= 0 for all k
-
-    Source: plan-final.md §3.2; Spec §6.3 AL1-AL2.
     """
 
     @abstractmethod
@@ -90,14 +81,13 @@ class AllocationStrategy(ABC):
         strata : list[StratumState]
             Current stratum states. len(strata) == K.
         B_round : int
-            Total label budget for this round. [Spec §4.7 Algorithm 1]
+            Total label budget for this round.
 
         Returns
         -------
         np.ndarray
             Shape (K,) int array of per-stratum budgets n_k.
             Invariants: n_k >= 0, n_k <= N_k - M_k, sum(n_k) <= B_round.
-            [Spec §6.3 AL1-AL2]
         """
         ...
 
@@ -108,20 +98,17 @@ class AllocationStrategy(ABC):
         B_round: int,
     ) -> None:
         """
-        Helper for subclasses: verify AL1-AL3 invariants and raise ValueError on violation.
-
-        Source: Spec §6.3 AL1-AL2; plan-final.md §3.2.
-        [DERIVED — verify]: invariant checks for correctness guarantees.
+        Verify the AL1-AL3 invariants; raise ValueError on violation.
         """
         capacities = np.array([s.N_k - s.M_k for s in strata], dtype=int)
 
-        # AL3: no negative allocations [Spec §6.3 AL3]
+        # AL3: no negative allocations
         if np.any(alloc < 0):
             raise ValueError(
                 f"AllocationStrategy invariant AL3 violated: negative n_k in {alloc}"
             )
 
-        # AL2: cannot exceed capacity [Spec §6.3 AL2]
+        # AL2: cannot exceed capacity
         if np.any(alloc > capacities):
             raise ValueError(
                 f"AllocationStrategy invariant AL2 violated: "
@@ -129,7 +116,6 @@ class AllocationStrategy(ABC):
             )
 
         # AL1: total does not exceed B_round (may be less if pool is exhausted)
-        # [Spec §6.3 AL1]
         if int(np.sum(alloc)) > B_round:
             raise ValueError(
                 f"AllocationStrategy invariant AL1 violated: "

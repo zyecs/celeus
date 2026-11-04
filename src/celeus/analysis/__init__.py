@@ -1,6 +1,4 @@
-"""rq4-rq6 estimator diagnostics: replay + metrics modules.
-
-"""
+"""Estimator diagnostics: trajectory replay and derived metrics."""
 from celeus.analysis.replay import (
     ReplayedStep,
     ReplayedTrajectory,

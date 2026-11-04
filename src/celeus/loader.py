@@ -53,8 +53,7 @@ def compute_surrogate_scores(
         gap = top2[:, 0] - top2[:, 1]
         scores = 1.0 - gap
     elif surrogate_type == "self_entropy":
-        # H(p_surr) / log(C) — normalized entropy in [0, 1]
-        # Source: spec §4.1a; [DERIVED — verify]: standard normalization
+        # H(p_surr) / log(C) — entropy normalized to [0, 1]
         C = logits.shape[1]
         if C == 1:
             raise ValueError("self_entropy requires C >= 2 (single-class has zero entropy)")
@@ -84,7 +83,6 @@ def compute_surrogate_ce_loss(
     Compute surrogate CE loss: s_i = -log(p_surr(y_true_i) + eps).
 
     Oracle-assisted — requires ground-truth labels.
-    Source: spec §4.1b
 
     Parameters
     ----------
@@ -116,11 +114,10 @@ def compute_cross_entropy_proxy(
     something the target model does not predict well — correlated with
     high target loss. No ground-truth labels needed.
 
-    Source: Berrada et al. (scaling-up-active-testing); Draft Remark 1.
-    [DEPRECATED as of 2026-04-11 (Stage 13) — prefer remark1_strategy{1,2,3}
-    for Theorem-5-aligned surrogate scoring. This function is kept for
-    stage-8..12 reproducibility and remains selectable via
-    surrogate_type='cross_entropy_proxy'.]
+    Source: Berrada et al. (scaling-up-active-testing).
+    Superseded by the `remark1_strategy{1,2,3}` scores, which follow
+    Theorem 4. This function is kept so that earlier runs stay reproducible
+    and remains selectable via surrogate_type='cross_entropy_proxy'.
 
     Parameters
     ----------
@@ -429,15 +426,15 @@ def load_experiment(
                 "This may happen when mixing base and ICL (_icl4) model variants."
             )
 
-        # Stage 13: Remark 1 surrogate scoring strategies dispatch.
-        # Gate: all three strategies require loss_type='cross_entropy' (spec §3.5).
+        # Dispatch for the cross-entropy surrogate scoring strategies
+        # (paper Remark 2). All of them require loss_type='cross_entropy'.
         # Dispatch lives here because this outer scope has access to distributions.
         if surrogate_type.startswith("remark1_"):
             if loss_type != "cross_entropy":
                 raise ValueError(
                     f"{surrogate_type} requires loss_type='cross_entropy'. "
-                    "Remark 1 in the draft (lines 433-453) is designed for "
-                    "continuous losses; combining it with loss_type='accuracy' "
+                    "The cross-entropy strategies are designed for "
+                    "continuous losses; combining them with loss_type='accuracy' "
                     "produces proxies on a different scale than the 0/1 true "
                     "loss and is not supported. Use surrogate_type='inv_max_softmax' "
                     "for accuracy experiments."
@@ -489,14 +486,13 @@ def load_experiment(
             if surrogate_distributions_local is not None:
                 surrogate_distributions = surrogate_distributions_local
         elif surrogate_type.startswith("remark2_"):
-            # Stage 15: Remark 2 surrogate scoring strategies dispatch.
-            # Gate: all five strategies require loss_type='accuracy' (draft Remark 2).
-            # Source: draft_celeus_v0413.tex Remark 2 lines 455-497.
+            # Dispatch for the 0-1 loss surrogate scoring strategies
+            # (paper Remark 1). All of them require loss_type='accuracy'.
             if loss_type != "accuracy":
                 raise ValueError(
                     f"{surrogate_type} requires loss_type='accuracy'. "
-                    "Remark 2 in the draft (lines 455-497) is designed for "
-                    "0-1 loss; combining it with loss_type='cross_entropy' "
+                    "The 0-1 loss strategies are designed for "
+                    "0-1 loss; combining them with loss_type='cross_entropy' "
                     "is not supported. Use remark1_strategy{1,2,3} for CE experiments."
                 )
             target_logits_path = target_dir / "all_set_scores.pt"
@@ -549,7 +545,6 @@ def load_experiment(
             # Compute surrogate scores — dispatch by type
             if surrogate_type == "surrogate_ce_loss":
                 # Oracle-assisted: needs ground-truth labels
-                # Source: spec §4.1b
                 targets_path = data_root / dataset / "all_set_targets.pt"
                 if not targets_path.is_file():
                     raise FileNotFoundError(
@@ -577,7 +572,6 @@ def load_experiment(
                     )
             elif surrogate_type == "cross_entropy_proxy":
                 # Label-free: H(p_surr, p_target) as loss predictor
-                # Source: Berrada et al.; Draft Remark 1
                 target_logits_path = target_dir / "all_set_scores.pt"
                 if not target_logits_path.is_file():
                     raise FileNotFoundError(
@@ -604,8 +598,8 @@ def load_experiment(
         if not is_unbounded:
             assert surrogate_scores.min() >= 0.0 and surrogate_scores.max() <= 1.0
         else:
-            # Clip unbounded surrogates to [0, L] to satisfy the paper's assumption
-            # 0 ≤ ℓ̂ ≤ L. [Draft page 5: "the loss predictor is uniformly bounded"]
+            # Clip unbounded surrogates to [0, L] so that Assumption 1 holds:
+            # the loss predictor stays uniformly bounded by 0 ≤ ℓ̂ ≤ L.
             # This ensures |ℓ - ŝ| ≤ L for the AIPW correction term bounds.
             L = float(np.max(ground_truth_losses))
             surrogate_scores = np.clip(surrogate_scores, 0.0, L)
@@ -630,8 +624,8 @@ def load_experiment(
                 target_distributions = F.softmax(target_logits, dim=1).detach().cpu().numpy().astype(np.float64)
                 surrogate_distributions = F.softmax(surrogate_logits, dim=1).detach().cpu().numpy().astype(np.float64)
 
-    # Embedding loading (optional, for Cer-Eval)
-    # Source: spec §3 — default embedding_model = surrogate_model
+    # Embedding loading (optional, for Cer-Eval). The embedding model
+    # defaults to the surrogate model.
     embedding_model = config.get("embedding_model", surrogate_model)
     embeddings = _load_embeddings(
         data_root, dataset, embedding_model, N_raw=N_raw, mask=mask,

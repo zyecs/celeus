@@ -1,5 +1,4 @@
-"""Deterministic trajectory replay for rq4-rq6 estimator diagnostics.
-
+"""Deterministic trajectory replay for the estimator diagnostics.
 
 Key guarantees (guards G1-G6):
   - G1: q_m reconstructed by ORIGINAL item identity
@@ -31,12 +30,12 @@ from celeus.paper_experiment.rng_streams import spawn_role_rngs
 logger = logging.getLogger(__name__)
 
 
-# Campaign invariants; see rq4-rq6 design §4.4 G4.
+# Campaign invariants; guard G4 checks them.
 _CAMPAIGN_K = 1
 _CAMPAIGN_B_ROUND = 1
 
 
-# Default data_root from CLAUDE.md memory (user env).
+# Pool data root; override with the CELEUS_DATA_ROOT environment variable.
 DEFAULT_DATA_ROOT = Path(os.environ.get("CELEUS_DATA_ROOT", "./data"))
 
 
@@ -51,8 +50,6 @@ def _parse_config_and_check_gates(
 
     Returns a dict of flags:
       {"K_inferred": bool, "B_round_inferred": bool, "numpy_inferred": bool}
-
-    Source: rq4-rq6 design §4.4 (G4, G6), §8 failure matrix.
     """
     cfg = json.loads(config_json)
     flags = {"K_inferred": False, "B_round_inferred": False, "numpy_inferred": False}
@@ -61,7 +58,7 @@ def _parse_config_and_check_gates(
         if cfg["K"] != 1:
             raise ValueError(
                 f"G4: config_json['K'] must be 1 for LURE single-draw semantics; "
-                f"got {cfg['K']}. See rq4-rq6 design §4.4 G4."
+                f"got {cfg['K']}."
             )
     else:
         logger.warning(
@@ -73,7 +70,7 @@ def _parse_config_and_check_gates(
         if cfg["B_round"] != 1:
             raise ValueError(
                 f"G4: config_json['B_round'] must be 1 for LURE single-draw semantics; "
-                f"got {cfg['B_round']}. See rq4-rq6 design §4.4 G4."
+                f"got {cfg['B_round']}."
             )
     else:
         logger.warning(
@@ -86,7 +83,7 @@ def _parse_config_and_check_gates(
             raise ValueError(
                 f"G6: config_json['numpy_version']={cfg['numpy_version']!r} != "
                 f"runtime numpy.__version__={runtime_numpy!r}. RNG streams may diverge; "
-                f"replay aborted. See rq4-rq6 design §4.4 G6."
+                f"replay aborted."
             )
     else:
         logger.warning(
@@ -105,7 +102,7 @@ def _load_pool_and_check_sha(
 ):
     """Reload the pool for this cell and verify pool_sha256.
 
-    Honours CE NLL filter metadata (rq4-rq6 design §4.2): when ``ce_nll_filter_kept``
+    Honours CE NLL filter metadata: when ``ce_nll_filter_kept``
     is set, passes the corresponding filter dict to load_pool_for_cell so that the
     returned pool is already filtered. The replayed trajectory then indexes into
     the filtered arrays directly.
@@ -120,8 +117,6 @@ def _load_pool_and_check_sha(
         Pool data root (defaults to DEFAULT_DATA_ROOT).
     pool_override : EvaluationPool or None
         For testing: skip the real loader and use this pool directly.
-
-    Source: rq4-rq6 design §4.2 CE NLL-filter handling + §8 hash gate.
     """
     if pool_override is not None:
         pool = pool_override
@@ -151,7 +146,7 @@ def _load_pool_and_check_sha(
             f"Pool data has drifted since the cell was written. Cannot replay."
         )
 
-    # CE filter round-trip check (rq4-rq6 design §4.2): recompute the kept
+    # CE filter round-trip check: recompute the kept
     # mask from threshold + raw NLL values and assert kept_mask.sum() equals
     # the stored kept-count. This catches silent drift in either the filter
     # threshold or the build_ce_nll_mask implementation — stronger than a
@@ -205,8 +200,6 @@ def _make_celeus_acq_rng(seed: int) -> np.random.Generator:
     Campaign threading: runners.run_celeus_method_for_seed calls
     spawn_role_rngs(seed) then hands rngs['celeus_acq'] to run_benchmark.
     Replay must use the same child to be bit-exact (G5).
-
-    Source: rq4-rq6 design §4.4 G5; src/celeus/paper_experiment/rng_streams.py.
     """
     return spawn_role_rngs(int(seed))["celeus_acq"]
 
@@ -226,9 +219,6 @@ def _make_acquisition_policy(
     (already baked into the reloaded pool — see load_pool_for_cell). So the
     same policy object works for both and the distinction is handled by the
     pool, not by switching policies here.
-
-    Source: rq4-rq6 design §4.1 / §6; spec
-    2026-04-22-accuracy-oracle-acquisition-design.md.
     """
     if acquisition == "uniform":
         return UniformAcquisition()
@@ -291,8 +281,8 @@ class ReplayedStep:
 class ReplayedTrajectory:
     """Full replayed trajectory for one (cell, seed, policy) triple.
 
-    Three pool arrays are carried, not two. This is critical for §6.4's
-    conditional-variance formula:
+    Three pool arrays are carried, not two. The conditional-variance
+    computation needs all three:
 
       - ``ell_full``: GROUND-TRUTH losses for the full pool.
         Used to form residuals r_j = ell_full[j] - ell_hat_full[j] in the
@@ -306,8 +296,7 @@ class ReplayedTrajectory:
         Used in _compute_proposal_over_J to reconstruct q_t(j) over J_{t-1}.
 
     Conflating ell_full and ell_proxy_full produces mathematically wrong
-    conditional variances for ada cells — see rq4-rq6 design §4.3 and the
-    round-4 plan review (F7 fix).
+    conditional variances for ada cells.
 
     Attributes
     ----------
@@ -380,7 +369,7 @@ def replay_trajectory(
     rng = _make_celeus_acq_rng(seed)
     policy = _make_acquisition_policy(acquisition, beta_min=meta.beta_min)
 
-    # Pool arrays. Note three arrays — see ReplayedTrajectory docstring (F7 fix).
+    # Pool arrays. Three of them — see the ReplayedTrajectory docstring.
     N = pool.N
     T = min(T_horizon, N)
     ell_full = np.asarray(pool.ground_truth_losses, dtype=np.float64)

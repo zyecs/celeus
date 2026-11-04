@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-"""Render the RQ1 label-efficiency figure with the CELEUS-anchored variant.
+"""Render the RQ1 label-efficiency figure.
 
-Differences from ``plot_rq1_efficiency.py``:
+Properties of this figure:
 
-- Adds the ``M3`` ablation curve (CELEUS w/o surrogate).
-- ``M1`` is labelled ``CELEUS`` (not ``CELEUS``) in the legend, CSV, and
-  manifest.
-- Per-panel ``x_end`` is the first label where the CELEUS dataset-level mean
-  curve drops to ``<= EPSILON``. If CELEUS never crosses, ``x_end`` falls
-  back to CELEUS's rightmost label and ``epsilon_crossed`` is recorded as
-  ``False`` in the manifest.
-- ``y_lim`` tightened to (0.04, 0.15).
-- Cer-Eval scope is intentionally not produced.
-- The renderer is a sibling of ``plot_rq1_efficiency.py``; it reuses
-  ``aggregate_pair_then_dataset`` / ``right_continuous_resample`` /
-  ``_insert_boundary_anchors`` / ``apply_rq1_nature_style`` / ``_format_labels``
-  via import, but defines its own method table and ``_panel_x_end``.
+- It adds the ``M3`` ablation curve (CELEUS without the surrogate).
+- Per-panel ``x_end`` is the first label where the dataset-level mean curve of
+  CELEUS drops to ``<= EPSILON``. If CELEUS never crosses, ``x_end`` falls
+  back to the rightmost label of CELEUS and the manifest records
+  ``epsilon_crossed`` as ``False``.
+- ``y_lim`` is (0.04, 0.15).
+- Cer-Eval is not part of this figure.
+- Trajectory loading, resampling, boundary anchors and styling come from
+  ``rq1_efficiency_common``; the method table and ``_panel_x_end`` are
+  defined here.
 """
 from __future__ import annotations
 
@@ -74,9 +71,9 @@ MEDIAN_MARKER_METHODS_BY_LOSS = {
     "accuracy":      ("M1", "ORACLE_ACC"),
     "cross_entropy": ("M1",),
 }
-# Font sizes for the new variant. Larger than the base variant so the figure
-# reads well at NeurIPS column width. Defined as a module-level dict so tests
-# can introspect it.
+# Font sizes for this figure. Larger than the defaults so that the figure
+# reads well at the column width of the paper. A module-level dict, so that
+# tests can read it.
 FONT_SIZES = {
     "font.size": 13,
     "axes.titlesize": 18,
@@ -148,8 +145,8 @@ def aggregate_pair_then_dataset(
     pairs: tuple[common.SelectedPair, ...],
     datasets: tuple[str, ...],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Same shape as the pair-then-dataset aggregation but writes
-    ``method_label`` from this module's ``METHOD_STYLE`` (CELEUS naming)."""
+    """Aggregate per pair, then per dataset, writing ``method_label`` from the
+    ``METHOD_STYLE`` table of this module."""
     pair_rows: list[dict[str, object]] = []
     dataset_rows: list[dict[str, object]] = []
     pair_curves: dict[tuple[str, str], list[tuple[str, str, np.ndarray, np.ndarray]]] = {}

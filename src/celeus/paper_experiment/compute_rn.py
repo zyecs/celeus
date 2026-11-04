@@ -1,4 +1,4 @@
-"""Compute R_N(dataset, target, loss) = mean over the pool (spec §4)."""
+"""Compute R_N(dataset, target, loss), the mean loss over the full pool."""
 from __future__ import annotations
 
 import csv
@@ -29,7 +29,7 @@ def compute_rn_for_combo(
             data_root / dataset / target / "all_set_per_sample_accuracy.pt",
             weights_only=False,
         )
-        # Loss_i = 1 - correct_i. [Spec §4]
+        # The accuracy loss is 1 - correct.
         losses = 1.0 - np.asarray(per_sample, dtype=np.float64).ravel()
         raw_n = len(losses)
         return float(losses.mean()), raw_n, raw_n

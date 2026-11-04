@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""rq6 — Variance Comparison (§6.4) plotter, Nature-style rewrite.
+"""Plot the RQ6 variance comparison.
 
 DOUBLE-column exception: 6.75 × 4.8 in figure with 3 dataset rows × 2 metric
 columns (cond_var_S | emp_var_R). 3 acquisition curves per panel
@@ -8,8 +8,6 @@ columns (cond_var_S | emp_var_R). 3 acquisition curves per panel
 Bands:
   - cond_var_S column: ±2·MC-SE bands.
   - emp_var_R  column: ±1·SD-between bands (sample-variance MC-SE misleading).
-
-Per spec §5.5, §5.6 (commit 4c5596c).
 """
 from __future__ import annotations
 

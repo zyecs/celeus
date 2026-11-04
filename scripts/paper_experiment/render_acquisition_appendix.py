@@ -1,13 +1,14 @@
-"""Render acquisition-strategy appendix for §6.5 item #3 (label app:acquisition-strategy).
+"""Render the acquisition-strategy appendix (label app:acquisition-strategy).
 
 Produces two artifacts under ``<out_root>/acquisition_appendix/``:
 
 * ``tab_strategies.tex`` — per-strategy median labels-to-epsilon and
-  miscoverage-at-tau_eps, split into Cross-entropy (Remark 1 variants)
-  and Accuracy (Remark 2 variants) blocks. The deployed strategies pull
-  rows from ``trajectories/main`` (existing campaign), the new variants
-  pull from ``trajectories/acquisition_sweep``, and the accuracy oracle
-  pulls from ``trajectories/oracle_accuracy``.
+  miscoverage-at-tau_eps, split into a cross-entropy block (config prefix
+  ``remark1_``, the strategies of Remark 2 in the paper) and an accuracy
+  block (config prefix ``remark2_``, the strategies of Remark 1 in the
+  paper). The deployed strategies pull rows from ``trajectories/main``, the
+  other variants pull from ``trajectories/acquisition_sweep``, and the
+  accuracy oracle pulls from ``trajectories/oracle_accuracy``.
 * ``fig_strategies.pdf`` — two-panel scatter (median labels-to-eps vs
   miscoverage rate); one panel per loss; one point per strategy.
 
@@ -68,7 +69,7 @@ CE_STRATS = [
     "remark1_oracle",
 ]
 
-# v0502 top-3 strategies per loss (deployed + 2 next-best + Oracle).
+# Top-3 strategies per loss (deployed + 2 next-best + Oracle).
 ACC_STRATS_TOP3 = [
     "remark2_strategy2",
     "remark2_strategy3",
@@ -82,9 +83,9 @@ CE_STRATS_TOP3 = [
     "remark1_oracle",
 ]
 
-# Source-folder dispatch per strategy: deployed strategies come from the
-# §6.1 main campaign, the oracle for accuracy comes from the
-# oracle_accuracy stage, everything else comes from acquisition_sweep.
+# Source-folder dispatch per strategy: the deployed strategies come from the
+# main campaign, the accuracy oracle comes from the oracle_accuracy stage,
+# and everything else comes from acquisition_sweep.
 _SOURCE_BY_STRATEGY: dict[str, list[str]] = {
     "remark2_strategy4":         ["trajectories/main"],
     "remark2_oracle_strategy4":  ["trajectories/oracle_accuracy"],
@@ -316,7 +317,7 @@ def main(argv: list[str] | None = None) -> None:
         seeds_acq = set(cfg.acquisition_sweep["seeds"])
     else:
         cells = cfg.acquisition_sweep["cells_paper"]
-        # v0502 uses the full 50-seed window from main, not the legacy 15-seed window.
+        # The paper cell list uses the full 50-seed window from main.
         seeds_acq = set(cfg.seeds_main)
 
     if args.strategies == "all":
@@ -325,9 +326,9 @@ def main(argv: list[str] | None = None) -> None:
         acc_strats, ce_strats = ACC_STRATS_TOP3, CE_STRATS_TOP3
 
     # Suffix rules:
-    # - Default --out-root + legacy + all → no suffix (preserves v0426 filenames)
-    # - Non-default --out-root + legacy + all → "_legacy"
-    # - Anything else → f"_{cells}_{strategies}"
+    # - Default --out-root + legacy + all → no suffix.
+    # - Non-default --out-root + legacy + all → "_legacy".
+    # - Anything else → f"_{cells}_{strategies}".
     is_default_root = (args.out_root is None
                        or Path(args.out_root) == Path(cfg.paths["out_root"]))
     if args.cells == "legacy" and args.strategies == "all":

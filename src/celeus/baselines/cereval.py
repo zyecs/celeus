@@ -1,18 +1,17 @@
 """
 Cer-Eval baseline — adaptive stratified sequential testing.
 
-Faithful port of seq_test_adaptive_z_full_width from
-save-v0320/examples/cer_eval.py.
+Faithful port of seq_test_adaptive_z_full_width from the reference Cer-Eval
+implementation.
 
-Only changes from reference:
-1. np.random.seed/shuffle/permutation → explicit rng (CLAUDE.md Rule 5)
-2. SimData class → direct numpy arrays
-3. partition_z gains rng parameter
+Changes from the reference:
+1. np.random.seed/shuffle/permutation replaced by an explicit Generator
+2. SimData class replaced by plain numpy arrays
+3. partition_z gains an rng parameter
 4. Guard Nk[j]==0 in partition_z
 5. Guard empty stratum in main loop
 6. Guard N < m_init
 7. Trajectory recording per label
-
 """
 
 from __future__ import annotations
@@ -36,7 +35,8 @@ def _partition_z(
     """
     Find optimal number of strata K and train 1-NN classifier.
 
-    Faithful port of partition_z() from cer_eval.py with RNG threading.
+    Faithful port of partition_z() from the reference, with the rng threaded
+    through.
 
     Parameters
     ----------
@@ -45,13 +45,13 @@ def _partition_z(
     partition_labels : np.ndarray, shape (N,) — mutated in place
     labeled_mask : np.ndarray, shape (N,) bool — which items are labeled
     delta : float
-    rng : np.random.Generator — CLAUDE.md Rule 5
+    rng : np.random.Generator
 
     Returns
     -------
     (K, clf, partition_labels) — optimal K, trained 1-NN, updated labels
     """
-    # Lazy import — spec §3 dependencies
+    # Imported lazily: scikit-learn is an optional dependency.
     try:
         from sklearn.neighbors import KNeighborsClassifier
     except ImportError:
@@ -76,7 +76,7 @@ def _partition_z(
         partition_labels[ind] = np.floor(z * (k - 0.01 / k)).astype(int)
 
         idx = np.arange(N_labeled)
-        rng.shuffle(idx)  # replaces np.random.shuffle(idx) — CLAUDE.md Rule 5
+        rng.shuffle(idx)  # replaces np.random.shuffle(idx) in the reference
 
         # Subsampling — preserved from reference
         num = int(N_labeled * min(0.8, max((N_labeled / N_total) ** 1.5, 0.5)))
@@ -105,7 +105,7 @@ def _partition_z(
         epsilon = np.zeros(k)
 
         mu = np.mean(z)
-        v_all = np.std(z) ** 2  # ddof=0 [POTENTIAL ISSUE]: biased variance, faithful to reference
+        v_all = np.std(z) ** 2  # ddof=0: biased variance, faithful to the reference
 
         for j in range(k):
             r[j] = np.mean(z[inds[j]])
@@ -162,11 +162,9 @@ class CerEvalBaseline:
     m_init : int
         Number of warm-up labels.
     seed : int | None
-        Random seed. CLAUDE.md Rule 4.
+        Random seed. Mutually exclusive with rng.
     rng : np.random.Generator | None
         Injected random generator. Mutually exclusive with seed.
-
-    Source: spec §3; cer_eval.py reference.
     """
 
     def __init__(
@@ -205,7 +203,7 @@ class CerEvalBaseline:
             )
             m_init = N - 1
         self.m_init = m_init
-        # paper_experiment spec §4: optional query-budget cap + monitor flag.
+        # Optional query-budget cap and monitoring flag.
         self.T_max = int(T_max) if T_max is not None else pool.N
         self.monitor_to_T_max = bool(monitor_to_T_max)
         # Degenerate guard: T_max < m_init would make the guard fire on entry.
@@ -222,7 +220,7 @@ class CerEvalBaseline:
         -------
         dict
             8-key trajectory dict. ``pop_lower == lower``, ``pop_upper == upper``.
-            Adds ``round_times`` (paper §6.5 item #5, Task 9): one
+            Adds ``round_times``: one
             ``time.perf_counter()`` delta per ``while True:`` iteration that
             recorded a trajectory row.
         """
@@ -253,7 +251,7 @@ class CerEvalBaseline:
         lower_list = []
         upper_list = []
         total_labels_list = []
-        # Per-round wall-clock instrumentation (paper §6.5 item #5, Task 9).
+        # Per-round wall-clock instrumentation.
         # One entry per ``while True:`` iteration that records a trajectory
         # row. Append occurs before every ``break`` and at the natural
         # bottom of the loop, so the array length matches ``len(t_list)``.
@@ -270,7 +268,7 @@ class CerEvalBaseline:
             remain = np.where(~labeled_mask)[0]
 
             if remain.size == 0:
-                # paper_experiment (spec §4): record the true full-pool state
+                # Record the true full-pool state
                 # before exiting so the last trajectory row reflects
                 # n_labeled == N with FRESH r_hat / epsilon (not stale carry-
                 # forward from the previous iteration).
@@ -428,7 +426,7 @@ class CerEvalBaseline:
             "pop_lower": lower_arr,   # No separate population correction
             "pop_upper": upper_arr,
             "total_labels": np.array(total_labels_list),
-            # Paper §6.5 item #5 (Task 9): per-iteration wall-clock so the
+            # Per-iteration wall-clock so the
             # ``wallclock`` stage can plot Cer-Eval round timing alongside
             # CELEUS/IID. Length matches ``t_list``; entries are non-negative
             # ``time.perf_counter()`` deltas.

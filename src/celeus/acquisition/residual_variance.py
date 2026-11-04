@@ -1,12 +1,8 @@
 """
-Residual-variance IS acquisition policy (Eq. 12).
+Residual-variance importance-sampling acquisition policy.
 
 Surrogate-guided within-stratum acquisition that oversamples items
 with large surrogate residuals |s_i - s_bar_k|, floored at beta_min/N_k.
-
-Source: Spec §2.4 Eq. (12); Blueprint lines 615-663.
-CLAUDE.md G1: every formula cites source.
-CLAUDE.md Rule 5: rng passed explicitly, never global state.
 """
 
 from __future__ import annotations
@@ -23,16 +19,14 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
     """
     Residual-variance IS acquisition policy.
 
-    Oversamples items with large surrogate residuals |s_i - s_bar_k|
-    to approximate the oracle-optimal acquisition (Paper Theorem 5).
+    Oversamples items with large surrogate residuals |s_i - s_bar_k| as a
+    label-free approximation of the variance-minimizing proposal of Theorem 4.
 
     q_k(i) = alpha + (1 - N_rem * alpha) * score_i / sum(scores)
     where alpha = beta_min / N_k, score_i = |s_i - s_bar_k| + 1e-8.
 
-    Floor guarantee: q_k(i) >= beta_min / N_k for all i.
-    [Spec §4.5; Paper Theorem 4: minimum-probability condition]
-
-    Source: Spec §2.4 Eq. (12); Blueprint lines 615-663.
+    Floor guarantee: q_k(i) >= beta_min / N_k for all i, which is the
+    minimum-probability condition of Assumption 2.
     """
 
     def __init__(self, beta_min: float = 0.05):
@@ -43,14 +37,10 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
         stratum: StratumState,
     ) -> np.ndarray:
         """
-        Compute initial (step-0) proposal distribution over remaining items.
+        Compute the step-0 proposal distribution over remaining items.
 
-        Helper extracted from select() to expose the first-draw probabilities.
-        Returns shape (|remaining|,) array of probabilities summing to 1.
-
-        When remaining is empty, returns np.empty(0, dtype=np.float64).
-
-        Source: Spec §2.4 Eq. (12); Blueprint lines 615-663.
+        Returns a shape (|remaining|,) array of probabilities summing to 1,
+        or np.empty(0, dtype=np.float64) when nothing remains.
         """
         remaining = stratum.remaining_indices()
         N_rem = len(remaining)
@@ -60,20 +50,18 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
 
         alpha = self.beta_min / stratum.N_k
 
-        # Compute initial probabilities via mixture distribution
-        # [Spec §2.4 Eq. (12)]
+        # Mixture of a uniform floor and the score-proportional part.
         if N_rem * alpha >= 1.0:
-            # Defensive guard: uniform fallback
-            # [Unreachable with beta_min=0.05, but guards pathological configs]
+            # Defensive guard: the floor alone would exceed total mass. This is
+            # unreachable with beta_min=0.05, but guards pathological configs.
             pool_probs = np.full(N_rem, 1.0 / N_rem)
         else:
-            # Compute raw scores: |s_i - s_bar_k| + epsilon
+            # Raw scores: |s_i - s_bar_k| + epsilon.
             scores = np.abs(stratum.surrogate_scores[remaining] - stratum.surrogate_mean)
-            scores = scores + 1e-8  # [Blueprint line 639: prevent all-zero]
+            scores = scores + 1e-8  # keep the score sum away from zero
             score_sum = scores.sum()
-            # Mixture distribution: q_i = alpha + (1 - N_rem * alpha) * score_i / score_sum
-            # Guarantees: q_i >= alpha (algebraically), sum q_i = 1 (algebraically)
-            # [Spec §2.4 Eq. (12); Paper Theorem 4: minimum-probability condition]
+            # q_i = alpha + (1 - N_rem * alpha) * score_i / score_sum, which
+            # gives q_i >= alpha and sum q_i = 1 algebraically.
             pool_probs = alpha + (1.0 - N_rem * alpha) * (scores / score_sum)
 
         return pool_probs
@@ -94,7 +82,7 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
         n_k : int
             Requested number of items to select.
         rng : np.random.Generator
-            Seeded random generator. [CLAUDE.md Rule 5]
+            Seeded random generator.
 
         Returns
         -------
@@ -102,24 +90,19 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
             Shape (n_select,) 0-indexed local indices selected.
         q_values : np.ndarray
             Shape (n_select,) sequential without-replacement sampling probabilities.
-
-        Source: Spec §2.4 Eq. (12); Blueprint lines 615-663.
         """
-        # Step 1: Get remaining unlabeled items
+        # Remaining unlabeled items.
         remaining = stratum.remaining_indices()  # 0-indexed local indices
         n_select = min(n_k, len(remaining))
 
-        # Step 2: Handle empty case
         if n_select == 0:
             return np.array([], dtype=int), np.array([], dtype=np.float64)
 
-        # Step 3: Compute initial probabilities
         pool_probs = self._compute_initial_probs(stratum)
 
-        # Step 4: Sequential WOR loop
-        # [Blueprint lines 647-663; Spec §2.4]
-        # After removal: renormalize only, do NOT recompute scores.
-        # Floor preserved: q_i/(1-q_j) > q_i >= alpha
+        # Sequential without-replacement loop. After each removal the
+        # probabilities are renormalized, not recomputed, so the floor still
+        # holds: q_i/(1-q_j) > q_i >= alpha.
         pool = remaining.copy()
         chosen_local = np.empty(n_select, dtype=int)
         q_values = np.empty(n_select, dtype=np.float64)
@@ -128,11 +111,10 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
             idx_in_pool = rng.choice(len(pool), p=pool_probs)
             chosen_local[j] = pool[idx_in_pool]
             q_values[j] = pool_probs[idx_in_pool]
-            # Remove selected item from pool and probability arrays
             pool = np.delete(pool, idx_in_pool)
             pool_probs = np.delete(pool_probs, idx_in_pool)
             if len(pool) > 0:
-                pool_probs = pool_probs / pool_probs.sum()  # Floor preserved: q_i/(1-q_j) > q_i >= alpha
+                pool_probs = pool_probs / pool_probs.sum()
 
         return chosen_local, q_values
 
@@ -144,28 +126,26 @@ class ResidualVarianceAcquisition(AcquisitionPolicy):
         """
         Return the current proposal distribution over unlabeled items.
 
-        Unlike select(), this does NOT draw. It exposes the probability mass
-        function q_t(j | F_{t-1}, D_N) that select() would use on its first draw.
-        Needed by rq4-rq6 replay analysis to compute conditional variances over
-        the pool at step-0 (before within-batch sequential renormalization).
+        Unlike select(), this does not draw. It exposes the probability mass
+        function that select() would use on its first draw. The replay
+        diagnostics need it to compute conditional variances over the pool at
+        step 0, before the within-batch sequential renormalization.
 
-        The G4 coupling (n_select == 1) ensures this step-0 distribution is
-        all that's needed — no information about subsequent draws within a batch
-        is required. [rq4-rq6 spec §4.3; design §5.6]
+        Replay runs with n_select == 1, so the step-0 distribution is all that
+        is required.
 
         Parameters
         ----------
         stratum : StratumState
             Current stratum state.
         n_k : int
-            Requested number of draws; unused (honoured for signature parity).
+            Requested number of draws; unused (kept for signature parity).
 
         Returns
         -------
         pool_probs : np.ndarray
             Shape (|remaining|,) float64 probability mass function.
-            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when remaining is empty.
-
-        Source: rq4-rq6 design §5.6 + §4.3.
+            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when
+            remaining is empty.
         """
         return self._compute_initial_probs(stratum)

@@ -18,10 +18,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 def default_config_path() -> Path:
     """Resolve the default paper_experiment config path.
 
-    If ``CELEUS_PE_CONFIG`` is set, return that; otherwise return the canonical
-    ``configs/paper_experiment.yaml`` under the repo root. Lets v0504 (and any
-    future snapshot) swap the active config without touching every call site
-    that previously hardcoded the default path.
+    Return ``CELEUS_PE_CONFIG`` if it is set, otherwise the canonical
+    ``configs/paper_experiment.yaml`` under the repo root. The environment
+    variable lets a run swap the active config without editing call sites.
     """
     env = os.environ.get("CELEUS_PE_CONFIG")
     if env:
@@ -37,9 +36,8 @@ _REQUIRED_TOP_LEVEL_KEYS = frozenset({
 })
 _OPTIONAL_KEYS_WITH_DEFAULTS: dict[str, Any] = {
     "ce_nll_filter": {"enabled": False, "threshold": 3.0},
-    # Acquisition sweep (§6.5 item #3) — populated by Task 1 (cells) and Task 7
-    # (variants/seeds/beta_min). Optional because the block is added
-    # incrementally; harness defaults keep load_config() backwards-compatible.
+    # Acquisition sweep. Optional so that a config written before the sweep
+    # existed still loads.
     "acquisition_sweep": {
         "cells_legacy": [],
         "variants_legacy_accuracy": [],
@@ -49,9 +47,9 @@ _OPTIONAL_KEYS_WITH_DEFAULTS: dict[str, Any] = {
         "seeds": [],
         "beta_min": 0.4,
     },
-    # Hyperparameter sweep (§6.5 item #4, Task 8). OAT recipe knobs over
-    # (α₁, θ, c_betting/c_fixed) on the 4 weak ce_sweep cells. Accuracy-only.
-    # Optional default keeps load_config() backwards-compatible.
+    # Hyperparameter sweep: one-at-a-time variation of (alpha_1, theta,
+    # c_betting, c_fixed) on the four weak-surrogate cells. Accuracy only.
+    # Optional so that a config written before the sweep existed still loads.
     "hparam_sweep": {
         "cells": [],
         "configs": [],
@@ -59,9 +57,8 @@ _OPTIONAL_KEYS_WITH_DEFAULTS: dict[str, Any] = {
         "beta_min": 0.4,
         "loss": "accuracy",
     },
-    # Wallclock stage (§6.5 item #5, Task 9). Cer-Eval-only with per-round
-    # wall-clock instrumentation, so we can plot M5's compute cost alongside
-    # CELEUS/IID. Accuracy-only by paper-campaign convention.
+    # Wall-clock stage: Cer-Eval only, with per-round timing, which gives the
+    # compute cost reported next to CELEUS and IID. Accuracy only.
     "wallclock": {
         "cells": [],
         "seeds": [],
@@ -212,8 +209,8 @@ def _validate_paper_pairs(cfg: object) -> None:
 
 
 
-# Older configs named the paper-pair acquisition cells after an internal
-# snapshot ("v0502"). Accept those names here, and only here.
+# Older configs named the paper-pair acquisition keys after an internal
+# snapshot. Accept those names here, and only here.
 _LEGACY_ACQUISITION_KEYS = {"cells_v0502": "cells_paper", "strategies_v0502": "strategies_paper"}
 
 

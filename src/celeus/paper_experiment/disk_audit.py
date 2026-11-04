@@ -1,4 +1,4 @@
-"""Stage 0.5 disk + inode + probe audit (spec §9)."""
+"""Pre-flight audit of disk space, inodes, and input readability."""
 from __future__ import annotations
 
 import os
@@ -57,7 +57,7 @@ def write_probe_and_read_back(path: Path) -> None:
 
 
 def check_no_uncommitted_src_deletions(repo_root: Path) -> None:
-    """Spec §9 Stage 0.5: no uncommitted deleted files in src/."""
+    """Fail if src/ has deleted files that are not committed yet."""
     import subprocess
 
     out = subprocess.run(

@@ -1,8 +1,5 @@
 """
 CELEUS core state dataclasses: CeleusConfig and StratumState.
-
-Blueprint §1.1: field layout for StratumState.
-Spec §4.5: hyperparameter defaults for CeleusConfig.
 """
 
 from __future__ import annotations
@@ -14,59 +11,53 @@ import numpy as np
 import yaml
 
 
-# ---------------------------------------------------------------------------
-# CeleusConfig
-# ---------------------------------------------------------------------------
-
 @dataclass
 class CeleusConfig:
     """
     All CELEUS hyperparameters loaded from YAML config.
     No magic numbers: every field corresponds 1-to-1 with default.yaml.
-
-    Source: Spec §4.5, configs/paper_experiment.yaml.
     """
-    # Spec §2.1: number of strata
+    # Number of strata
     K: int = 1
-    # Spec §2.1 Eq. (2): IS weight clipping threshold
+    # Importance-weight clipping threshold
     u_max: float = 20.0
-    # Loss lower bound L (v0403 §3.1): min possible per-item loss. Default 0.
+    # Loss lower bound L: minimum possible per-item loss. Default 0.
     loss_lower: float = 0.0
-    # Loss bound L: max possible per-item loss. Accuracy=1.0, CE=max(losses).
-    # Used for rescaling [a,b] and Hoeffding Δ_N. [Draft §3.2, page 6]
+    # Loss upper bound: maximum possible per-item loss. Accuracy=1.0, CE=max(losses).
+    # Used to rescale to [a, b] and for the Hoeffding population correction.
     loss_bound: float = 1.0
-    # Paper v0320: labels per round (runner enforces B_round = K; one per stratum)
+    # Labels per round (the runner enforces B_round = K; one per stratum)
     B_round: int = 1
-    # Spec §4.5: minimum allocation fraction per stratum
+    # Minimum allocation fraction per stratum
     beta_min: float = 0.05
-    # Spec §2.2: CS coverage parameter (sample-based)
+    # Coverage parameter of the sample-level confidence sequence
     alpha_1: float = 0.025
-    # Spec §2.3 Eq. (11): population correction parameter
+    # Coverage parameter of the finite-pool-to-population correction
     alpha_2: float = 0.025
-    # Spec §4.5: grid density for e-value CS (points per unit original scale)
+    # Grid density for the e-value CS (points per unit original scale)
     cs_grid_size: int = 2000
-    # Spec §4.5: betting fraction for hedged capital (anytime mode)
+    # Cap constant for the betting fractions, anytime mode
     c_betting: float = 0.5
-    # Remark 5: cap multiplier for fixed-horizon mode; 0 < c_fixed < 1
+    # Cap constant for the betting fractions, fixed-horizon mode; 0 < c_fixed < 1
     c_fixed: float = 0.5
-    # Spec §4.5: mixture weight for e-value CS
+    # Mixture weight of the hedged capital process
     theta: float = 0.5
-    # Spec §4.5: width threshold for early stopping
+    # Width threshold for early stopping
     epsilon: float = 0.02
-    # Spec §4.7 Algorithm 1: maximum total labels
+    # Maximum total labels
     T_max: int = 5000
-    # Remark 5: fixed-horizon mode (CI valid only at t=T_max)
+    # Fixed-horizon mode: the CI is valid only at t = T_max
     fixed_horizon: bool = False
-    # Spec §4.5: surrogate model update cadence (0 = never update)
+    # Surrogate model update cadence (0 = never update)
     surrogate_update_interval: int = 0
-    # CLAUDE.md Rule 4: reproducibility seed
+    # Reproducibility seed
     seed: int = 42
-    # v0414 §3.2: use per-round adaptive local scaling bounds (a_t, b_t)
-    # When False, falls back to fixed bounds (v0413 behavior).
+    # Use per-round adaptive local scaling bounds (a_t, b_t).
+    # When False, the runner uses one fixed pair of bounds for every round.
     adaptive_bounds: bool = True
-    # Paper-experiment (spec §4): when True, CeleusRunner / baselines continue
-    # past the epsilon-width stopping rule up to T_max so the full trajectory
-    # is observable. The crossing time is still recorded in the trajectory.
+    # When True, CeleusRunner and the baselines continue past the epsilon-width
+    # stopping rule up to T_max so that the full trajectory is observable. The
+    # crossing time is still recorded in the trajectory.
     monitor_to_T_max: bool = False
 
     @classmethod
@@ -75,7 +66,6 @@ class CeleusConfig:
         Load CeleusConfig from a YAML file.
 
         Raises ValueError on unknown keys (strict mapping).
-        Source: CLAUDE.md Rule 3 (no magic numbers), Rule 4 (seed in config).
         """
         with open(path, "r") as fh:
             data = yaml.safe_load(fh)
@@ -93,10 +83,6 @@ class CeleusConfig:
             )
         return cls(**data)
 
-
-# ---------------------------------------------------------------------------
-# StratumState
-# ---------------------------------------------------------------------------
 
 @dataclass
 class StratumState:
@@ -116,75 +102,70 @@ class StratumState:
       labeled_mask (in the defaulted section) because Python dataclass
       ordering requires fields with defaults to follow fields without.
 
-    Index convention (Blueprint §1.1, Spec §7.2):
+    Index convention:
       label_order stores LOCAL 0-indexed positions within pool_indices.
-      The IS-weight formula Eq. (2) uses 1-indexed m (cumulative within-stratum
+      The importance-weight formula uses 1-indexed m (cumulative within-stratum
       label count); callers must convert: m = position_in_label_order + 1.
-
-    Source: Blueprint §1.1 (field layout), Spec §2.1 (w_k, N_k, Eq. (1)-(2)).
     """
 
-    # --- Identity (immutable after construction) ---
+    # Identity, immutable after construction.
 
-    # Stratum index, 0-based [DERIVED from Blueprint §1.1]
+    # Stratum index, 0-based
     k: int
-    # Global pool indices for items in this stratum [Blueprint §1.1]
+    # Global pool indices for items in this stratum
     pool_indices: np.ndarray          # shape (N_k,) int
-    # Stratum size [Spec §2.1]
+    # Stratum size
     N_k: int
-    # Stratum weight: N_k / N [Spec §2.1 setup]
+    # Stratum weight: N_k / N
     w_k: float
-    # Surrogate scores for items in this stratum, in [0,1] [Spec §1.3]
+    # Surrogate scores for items in this stratum, in [0,1]
     surrogate_scores: np.ndarray      # shape (N_k,) float
-    # Cached surrogate mean: (1/N_k) Σ s_n [Spec §2.1 Eq. (1) note]
+    # Cached surrogate mean: (1/N_k) Σ s_n
     surrogate_mean: float
 
-    # --- Mutable labeling state ---
+    # Mutable labeling state.
 
-    # Boolean mask; True where item has been labeled [Blueprint §1.1]
+    # Boolean mask; True where item has been labeled.
     # NOT a dataclass default — must be passed explicitly (depends on N_k).
     labeled_mask: np.ndarray          # shape (N_k,) bool
 
-    # Number of labels acquired so far [Spec §2.1 Eq. (1)]
+    # Number of labels acquired so far
     M_k: int = 0
 
-    # Local indices in query order, 0-indexed within pool_indices [DERIVED — verify]
+    # Local indices in query order, 0-indexed within pool_indices
     # IS-weight formula uses 1-indexed m; caller converts: m = idx_in_list + 1
     label_order: list = field(default_factory=list)
 
-    # L_m values (ground-truth losses) in query order [Spec §2.1 Eq. (1)]
+    # L_m values (ground-truth losses) in query order
     losses: list = field(default_factory=list)
 
-    # q_k(m) sampling probabilities [Spec §2.1 Eq. (2)]
+    # q_k(m) sampling probabilities
     q_values: list = field(default_factory=list)
 
-    # --- Running AIPW state ---
+    # Running AIPW state.
 
-    # Σ_{m=1}^{t-1} (L_m - s_m) — running sum of raw residuals [Paper v0320 Eq. (1')]
+    # Σ_{m=1}^{t-1} (L_m - s_m) — running sum of raw residuals
     sum_past_residuals: float = 0.0
 
-    # Current stratum AIPW estimate [Spec §2.1 Eq. (1)]
+    # Current stratum AIPW estimate
     R_hat_k: float = 0.0
 
-    # --- Optional: per-item distribution arrays for Eq. (15) [Stage 6.5] ---
-    # NOTE [R3]: These are logically IMMUTABLE identity fields (set once at
-    # construction by make_strata, never modified afterward). They are placed
-    # in the defaulted section solely because Python dataclass ordering
-    # requires all fields with defaults to follow all fields without defaults.
-    # Do NOT treat these as mutable state. [Spec section 2.4 Eq. (15)]
+    # Optional per-item class-probability arrays.
+    # These are logically immutable identity fields: make_strata sets them once
+    # at construction and nothing modifies them afterward. They sit in the
+    # defaulted section only because Python dataclass ordering requires fields
+    # with defaults to follow fields without defaults. Do not treat them as
+    # mutable state.
     target_distributions: Optional[np.ndarray] = None
     surrogate_distributions: Optional[np.ndarray] = None
-    # --- Optional: label-free loss proxy for Remark 1 acquisition [Stage 13] ---
-    # Set by the loader when surrogate_type starts with "remark1_"; None
-    # otherwise. ResidualMagnitudeAcquisition reads this to compute
+    # Optional label-free loss proxy for score-based acquisition.
+    # Set by the loader for the `remark1_*` and `remark2_*` surrogate types;
+    # None otherwise. ResidualMagnitudeAcquisition reads it to compute
     # |ell_proxy - surrogate_scores|.
     ell_proxy: Optional[np.ndarray] = None
 
     def remaining_indices(self) -> np.ndarray:
         """
         Return local (0-indexed within this stratum) indices of unlabeled items.
-
-        Source: [DERIVED — verify] complement of labeled_mask.
         """
-        # [DERIVED — verify]: np.where(~mask)[0] gives local indices of False entries
         return np.where(~self.labeled_mask)[0]

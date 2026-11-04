@@ -6,8 +6,7 @@ Implements the fixed-sample Hoeffding CI width baseline:
   width_H(t, alpha) = min(1.0, 2 * sqrt(log(2 / alpha) / (2 * t)))
 
 Source: Hoeffding (1963), "Probability inequalities for sums of bounded
-random variables"; Spec §4.3 baseline B0.
-CLAUDE.md G1: every formula cites source.
+random variables".
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ def hoeffding_ci_width(t: int, alpha: float) -> float:
 
       min(1.0, 2 * sqrt(log(2 / alpha) / (2 * t)))
 
-    Source: Hoeffding (1963); Spec §4.3 baseline B0; Stage 3 review items R2/R4.
+    Source: Hoeffding (1963).
     """
     if t < 1:
         return float("inf")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""rq4 — Unbiased Estimation (§6.2.3) plotter (Nature-style rewrite).
+"""Plot the RQ4 unbiasedness results.
 
 Emits TWO PDFs:
   - pooled.pdf:   3 dataset panels stacked vertically (sst2/mmlu/agnews);
@@ -9,9 +9,8 @@ Emits TWO PDFs:
                   showing only LURE curves under default acquisition (ada).
 
 And TWO CSVs:
-  - aggregated_curves.csv:    LEGACY schema preserved verbatim for the §12
-                              spot-check at run_task18.slurm. No `dataset` column.
-  - per_dataset_curves.csv:   NEW schema with `dataset` column; consumed by
+  - aggregated_curves.csv:    Older schema, kept verbatim. No `dataset` column.
+  - per_dataset_curves.csv:   Current schema with a `dataset` column; consumed by
                               the plot scripts and regen_plots_only.
 
 """
@@ -144,8 +143,8 @@ def _render_showcase(per_seed_df: pd.DataFrame, out_path: Path,
     Honors `CELEUS_PLOT_PAIRS` env var via `get_runtime_pairs()` to allow
     `regen_plots_only.py --pairs` to restrict the rendered slots.
 
-    `pair_defs` overrides the showcase pair set (used by --paper-pairs to swap
-    the legacy 3-pair `PAIR_DEFS` for the 4 v0502 paper_pairs).
+    `pair_defs` overrides the showcase pair set: --paper-pairs swaps the
+    built-in 3-pair `PAIR_DEFS` for the pairs reported in the paper.
     """
     pairs = pair_defs if pair_defs is not None else get_runtime_pairs()
     pair_filtered = per_pair_filter(per_seed_df, pairs)
@@ -205,7 +204,7 @@ def _render_showcase(per_seed_df: pd.DataFrame, out_path: Path,
 
 
 def _rename_stale_per_cell(out_dir: Path) -> None:
-    """G5/H6 fix: rename stale per_cell.pdf → per_cell.pdf.deprecated."""
+    """Rename a stale per_cell.pdf to per_cell.pdf.deprecated."""
     stale = out_dir / "per_cell.pdf"
     if stale.exists():
         target = out_dir / "per_cell.pdf.deprecated"
@@ -256,7 +255,6 @@ def main(argv=None):
         per_seed_df = filter_per_seed_by_paper_pairs(per_seed_df, _cfg.paper_pair_keys)
         logger.info("paper_pairs filter: %d rows remaining", len(per_seed_df))
 
-    # Aggregate
     t0 = time.time()
     per_dataset_df = per_dataset_pool(
         per_seed_df,
@@ -269,13 +267,12 @@ def main(argv=None):
     legacy_df = _legacy_pool_global(per_seed_df)
     aggregate_s = time.time() - t0
 
-    # CSVs (H3: float_format='%.18g' for byte-identity with legacy)
+    # float_format='%.18g' keeps these CSVs byte-identical to the earlier ones.
     per_dataset_df.to_csv(args.out / "per_dataset_curves.csv",
                           index=False, float_format="%.18g")
     legacy_df.to_csv(args.out / "aggregated_curves.csv",
                      index=False, float_format="%.18g")
 
-    # PDFs
     _render_pooled(per_dataset_df, args.out / "pooled.pdf")
     showcase_pair_defs = None
     if args.paper_pairs:
@@ -285,7 +282,6 @@ def main(argv=None):
                      acquisition=args.acquisition_showcase,
                      pair_defs=showcase_pair_defs)
 
-    # metadata.json
     meta = {
         "git_commit": _git_hash(),
         "section": "rq4",

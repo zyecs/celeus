@@ -1,10 +1,8 @@
 #!/usr/bin/env python
-"""rq5 — Signal Error (§6.2.4) plotter, Nature-style rewrite.
+"""Plot the RQ5 signal error.
 
 3-dataset-row pooled per loss; 3-pair showcase per loss. Two CSVs per loss
 (legacy + per_dataset). Loops over args.losses for accuracy + cross_entropy.
-
-Per spec §5.3, §5.4 (commit 4c5596c).
 """
 from __future__ import annotations
 

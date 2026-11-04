@@ -640,9 +640,9 @@ def run_loss(
 def main() -> int:
     args = parse_args()
     # When --paper-pairs is active, replace FOCUS_PAIRS with cfg.paper_pairs
-    # directly. NOTE: do NOT intersect with the legacy FOCUS_PAIRS — the v0502
-    # paper_pairs may not overlap (e.g. v0502 has Qwen / Mixtral targets the
-    # legacy set lacks), and intersecting collapses the visualisation.
+    # directly. Do not intersect the two sets: the paper pairs and the
+    # built-in FOCUS_PAIRS need not overlap, and an intersection can collapse
+    # the figure to nothing.
     global FOCUS_PAIRS
     if args.paper_pairs:
         from celeus.paper_experiment.config import load_config as _load_config

@@ -4,8 +4,8 @@ CELEUS trajectory recorder.
 TrajectoryRecorder logs per-round statistics to a .npz file including
 git commit hash and full config YAML.
 
-Source: Spec §4.7 Algorithm 1 line 22 ("RECORD: Log R̂^t, pop_lo, pop_hi,
-        pop_w, ESS, clip_rates"); CLAUDE.md Rule 6 (git hash + config).
+Each row holds R̂_t, the pool-corrected interval, the width, the ESS and the
+clipping rates for one round.
 """
 
 from __future__ import annotations
@@ -24,8 +24,7 @@ def _get_git_hash(project_root: str | None = None) -> str:
     """
     Return the current git commit hash.
 
-    Falls back to 'unknown' if git is unavailable (e.g., in CI).
-    Source: CLAUDE.md Rule 6 ("Every experiment logs git commit hash").
+    Falls back to 'unknown' if git is unavailable (for example in CI).
     """
     try:
         cwd = project_root if project_root is not None else os.getcwd()
@@ -53,8 +52,6 @@ class TrajectoryRecorder:
                     total_labels, weight_clip_rate, output_clip_rate,
                     ess_per_stratum)
     recorder.save("output/trajectory.npz")
-
-    Source: Spec §4.7 Algorithm 1 line 22; CLAUDE.md Rule 6.
     """
 
     def __init__(self, K: int, config: CeleusConfig, git_hash: str) -> None:
@@ -66,7 +63,7 @@ class TrajectoryRecorder:
         config : CeleusConfig
             Run configuration (serialized to YAML in output file).
         git_hash : str
-            Git commit hash for reproducibility. [CLAUDE.md Rule 6]
+            Git commit hash for reproducibility.
         """
         self.K = K
         self.config = config
@@ -99,8 +96,6 @@ class TrajectoryRecorder:
     ) -> None:
         """
         Append one row to all internal buffer lists.
-
-        Source: Spec §4.7 Algorithm 1 line 22.
         """
         self._t.append(int(t))
         self._R_hat.append(float(R_hat))
@@ -118,11 +113,9 @@ class TrajectoryRecorder:
         """
         Effective sample size for a stratum.
 
-        Under v0320, there are no IS weights — ESS equals M_k (all items
-        have equal contribution). Retained for API compatibility with
-        trajectory recording.
-
-        [Paper v0320: no IS weights, ESS = M_k]
+        The estimator carries no importance weights, so the ESS equals M_k:
+        every labeled item contributes equally. Retained for the trajectory
+        recorder's output schema.
         """
         return float(stratum.M_k)
 
@@ -135,7 +128,7 @@ class TrajectoryRecorder:
           total_labels, weight_clip_rate, output_clip_rate,
           ess (shape T x K), git_hash (string scalar), config_yaml (string scalar).
 
-        Source: CLAUDE.md Rule 6 ("Every experiment logs git commit hash + full config").
+        Every run records the git commit hash and the full config.
         """
         # Convert buffers to numpy arrays
         t_arr = np.array(self._t, dtype=np.int64)
@@ -154,7 +147,7 @@ class TrajectoryRecorder:
         else:
             ess_arr = np.zeros((0, self.K), dtype=np.float64)
 
-        # Serialize config to YAML string [CLAUDE.md Rule 6]
+        # Serialize config to YAML string
         import dataclasses
         config_dict = dataclasses.asdict(self.config)
         config_yaml_str = yaml.dump(config_dict, default_flow_style=False)

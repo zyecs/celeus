@@ -58,10 +58,10 @@ def run_analyze(
 def run_ce_sweep(
     *, cfg: PaperExperimentConfig, index: int | None, dry_run: bool
 ) -> int:
-    """Stage 2: execute one CE-sweep sub-cell, OR (index == -1) select the winner.
+    """Execute one CE-sweep sub-cell, or select the winner when ``index == -1``.
 
-    CE sweep uses only 5 seeds per cell (spec §5); one SLURM task per cell
-    handles all 5 — no chunking — so assignment count = cell count = 90.
+    The CE sweep uses 5 seeds per cell and one SLURM task runs all 5, so there
+    is no chunking and the assignment count equals the cell count.
     """
     from pathlib import Path
 
@@ -247,7 +247,7 @@ def _run_main_like_subcell(
     dry_run: bool,
     kind: str = "main",
 ) -> int:
-    """v2: execute one (cell x seed-chunk) sub-cell."""
+    """Execute one (cell x seed-chunk) sub-cell."""
     if dry_run:
         _main_cell_dry_run(cell)
         print(f"  chunk={chunk} seeds={list(seeds)}")
@@ -327,7 +327,7 @@ def _run_main_like_subcell(
 def run_smoke(
     *, cfg: PaperExperimentConfig, index: int | None, dry_run: bool
 ) -> int:
-    """Stage 1 smoke: one cell x 3 seeds x 4 methods = 4 SLURM tasks."""
+    """Smoke test: one cell x 3 seeds x 4 methods = 4 SLURM tasks."""
     from pathlib import Path
 
     from .cell_runner import merge_subcells
@@ -406,7 +406,7 @@ def run_main_ce(
 def run_cereval_fresh(
     *, cfg: PaperExperimentConfig, index: int | None, dry_run: bool
 ) -> int:
-    """Stage 0: M5 fresh sweep over both losses.
+    """Fresh Cer-Eval (M5) sweep over both losses.
 
     chunk_size=1: one seed per task. M5's per-seed wallclock on the larger
     pools (mmlu N=115k, agnews N=128k) approaches the 24h SLURM cliff when
@@ -441,7 +441,7 @@ def run_cereval_fresh(
 def run_beta_sweep(
     *, cfg: PaperExperimentConfig, index: int | None, dry_run: bool
 ) -> int:
-    """Stage 5: M1 with sweep over beta (seed-chunked)."""
+    """M1 with a sweep over beta_min (seed-chunked)."""
     from pathlib import Path
 
     from .cell_runner import run_subcell
@@ -582,18 +582,16 @@ def run_acquisition_sweep(
     *, cfg: PaperExperimentConfig, loss: str, scope: str = "legacy",
     index: int | None, dry_run: bool
 ) -> int:
-    """Stage 6 / 6b: acquisition-strategy sweep, seed-chunked.
+    """Acquisition-strategy sweep, seed-chunked.
 
-    The CLI selects ``--loss`` so accuracy and CE share one stage but get
-    independent SLURM arrays. ``oracle_accuracy`` is *not* re-emitted here —
-    the accuracy oracle is reused at render time from
-    ``trajectories/oracle_accuracy/`` (Strategy 4 oracle, written by
-    ``oracle-accuracy``).
+    The CLI selects ``--loss``, so accuracy and cross-entropy share one stage
+    but get independent SLURM arrays. ``oracle_accuracy`` is not re-emitted
+    here: the accuracy oracle is reused at render time from
+    ``trajectories/oracle_accuracy/``, written by ``oracle-accuracy``.
 
-    ``scope``: 'legacy' (the original 6-cell sweep) or 'v0502' (the 12-cell
-    sweep on the four paper_pairs). The legacy scope is the default
-    so that the existing ``--stage acquisition-sweep`` callsite continues
-    to work without changes.
+    ``scope`` is 'legacy' (the smaller exploratory sweep) or 'paper' (the
+    sweep over the paper pairs). 'legacy' stays the default so that an
+    existing ``--stage acquisition-sweep`` call site keeps working.
     """
     from pathlib import Path
 
@@ -662,7 +660,7 @@ def run_acquisition_sweep(
 def run_hparam_sweep(
     *, cfg: PaperExperimentConfig, index: int | None, dry_run: bool
 ) -> int:
-    """Stage 7 (§6.5 item #4): hyperparameter OAT sweep, seed-chunked.
+    """Hyperparameter one-at-a-time sweep, seed-chunked.
 
     Each YAML config entry overrides the protocol kwargs ``alpha_1``, ``theta``,
     ``c_betting``, ``c_fixed`` for one (cell, config) trajectory. The deployed
@@ -698,9 +696,9 @@ def run_hparam_sweep(
     ensure_compute_node()
     # Hparam sweep is accuracy-only; no CE NLL filter applies.
     loss = str(cfg.hparam_sweep["loss"])
-    # Surrogate type is fixed at the deployed accuracy strategy. The hparam
-    # sweep isolates the recipe knobs from the surrogate choice (which is
-    # varied separately in §6.5 item #3 / acquisition_sweep).
+    # Surrogate type is fixed at the deployed accuracy strategy. This sweep
+    # isolates the recipe knobs from the surrogate choice, which the
+    # acquisition sweep varies separately.
     surrogate_type = "remark2_strategy4"
     pool = load_pool_for_cell(
         data_root=Path(cfg.paths["data_root"]),
@@ -740,12 +738,12 @@ def run_hparam_sweep(
 def run_wallclock(
     *, cfg: PaperExperimentConfig, index: int | None, dry_run: bool
 ) -> int:
-    """Stage 8 (§6.5 item #5, Task 9): Cer-Eval wall-clock instrumentation.
+    """Cer-Eval wall-clock instrumentation.
 
     Mirrors ``run_oracle_accuracy`` but uses ``method_id="M5"`` (Cer-Eval) and
-    the wallclock seed list. ``chunk_size=1`` so each (cell, seed) is one
-    SLURM task — Cer-Eval is 4–5h per seed, which is too slow for the default
-    chunk_size of 5. 4 cells × 5 seeds = 20 SLURM tasks.
+    the wall-clock seed list. ``chunk_size=1`` puts each (cell, seed) in its
+    own SLURM task, because Cer-Eval needs 4-5 h per seed, which is too slow
+    for the default chunk size of 5.
     """
     from pathlib import Path
 
@@ -875,17 +873,17 @@ def run_merge_cells(
         targets.append(("ce_sweep", cell, list(cfg.seeds_ce_sweep)))
     for cell in beta_sweep_cells(cfg):
         targets.append(("beta_sweep", cell, list(cfg.seeds_beta_sweep)))
-    # §6.5 acquisition-sweep: enumerate per-loss so the merge index range
-    # extends naturally past beta_sweep without disturbing earlier ranges.
-    # v0502: enumerate both scopes when v0502 cells are populated.
+    # Acquisition sweep: enumerate per loss so the merge index range extends
+    # past beta_sweep without disturbing the earlier ranges. Enumerate both
+    # scopes when the paper-scope cells are populated.
     acq_seeds_legacy = list(cfg.acquisition_sweep["seeds"])
     if acq_seeds_legacy:
         for loss in cfg.losses:
             for cell in acquisition_sweep_cells(cfg, loss=loss, scope="legacy"):
                 targets.append(("acquisition_sweep", cell, acq_seeds_legacy))
 
-    # v0502 cells use seeds_main (50 seeds). Gate on directory presence,
-    # NOT on out_root path string (Opus MAJOR #2):
+    # The paper-scope cells use seeds_main (50 seeds). Detect them from
+    # directory contents, not from the out_root path string:
     paper_subcells = out_root / "_subcells" / "acquisition_sweep"
     paper_cells_dir = out_root / "trajectories" / "acquisition_sweep"
     paper_has_data = (
@@ -898,12 +896,12 @@ def run_merge_cells(
         for loss in cfg.losses:
             for cell in acquisition_sweep_cells(cfg, loss=loss, scope="paper"):
                 targets.append(("acquisition_sweep", cell, acq_seeds_paper))
-    # §6.5 hparam-sweep: extends index range past acquisition_sweep.
+    # Hyperparameter sweep: extends the index range past acquisition_sweep.
     hp_seeds = list(cfg.hparam_sweep["seeds"])
     if hp_seeds:
         for cell in hparam_sweep_cells(cfg):
             targets.append(("hparam_sweep", cell, hp_seeds))
-    # §6.5 wallclock (Task 9): extends index range past hparam_sweep.
+    # Wall-clock stage: extends the index range past hparam_sweep.
     wc_seeds = list(cfg.wallclock["seeds"])
     if wc_seeds:
         for cell in wallclock_cells(cfg):

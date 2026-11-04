@@ -1,8 +1,6 @@
-"""Build the v0502 snapshot: symlinks for legacy trajectories filtered to
-paper_pairs (excluding M5), filter+rewrite per_seed_curves.csv files, copy
-scalar inputs, and emit manifest.json with full provenance.
-
-See spec §7.1 for the design.
+"""Build a snapshot of the paper results: symlinks for the earlier trajectories
+filtered to paper_pairs (excluding M5), filter and rewrite per_seed_curves.csv
+files, copy scalar inputs, and emit manifest.json with full provenance.
 """
 from __future__ import annotations
 
@@ -140,7 +138,7 @@ def _filter_csv_files(
 
 
 def _symlink_scalar_inputs(legacy_root: Path, out_root: Path) -> list[dict]:
-    """Symlink R_N.csv, ce_sweep_winner.json, extreme_pairs.yaml into v0502."""
+    """Symlink R_N.csv, ce_sweep_winner.json and extreme_pairs.yaml into the snapshot."""
     files = ["R_N.csv", "ce_sweep_winner.json", "extreme_pairs.yaml"]
     manifest_rows = []
     for f in files:
@@ -211,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         capture_output=True, text=True,
     ).stdout[:8000]
 
-    # Merge-not-overwrite: preserve fields populated by E3.
+    # Merge, do not overwrite: keep the fields written by an earlier step.
     manifest_path = out_root / "manifest.json"
     existing = {}
     if manifest_path.is_file():
@@ -227,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         "git_commit": _git_commit(),
         "git_dirty": _git_dirty(),
         "config_path": str(cfg_path),
-        "config_diff_against_v0426": config_diff,
+        "config_git_log": config_diff,
         "paper_pairs": cfg.paper_pairs,
         "scope_mapping": {
             "main_cells_symlinked": main_rows,

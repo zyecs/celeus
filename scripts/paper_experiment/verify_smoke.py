@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# scripts/paper_experiment/verify_smoke.py
-"""Stage 1 smoke-test pass checklist (spec §9 Stage 1)."""
+"""Smoke-test pass checklist."""
 from __future__ import annotations
 
 import argparse
@@ -30,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     failed = []
     s = cfg.smoke
 
-    # (1) expected cell files exist
+    # The expected cell files exist.
     for method in s["methods"]:
         path = main_cell_path(base, method, s["dataset"], s["surrogate"], s["target"], s["loss"])
         if not path.exists():
@@ -80,39 +79,38 @@ def main(argv: list[str] | None = None) -> int:
                     f"{meta.ce_nll_filter_kept}, R_N.csv={rn_row['kept']}"
                 )
                 all_ok = False
-        # (4) pool identity: every seed in a cell must share the same pool_sha256.
+        # Pool identity: every seed in a cell shares the same pool_sha256.
         pool_shas[method] = meta.pool_sha256
         if not meta.pool_sha256:
             print(f"{method}: meta.pool_sha256 is empty (expected SHA-256 hex)")
             all_ok = False
         for seed, r in results.items():
-            # (2) coverage at every step
+            # Coverage holds at every step.
             lo, hi = r.celeus_lo, r.celeus_hi
             bad = np.sum((lo > rn) | (hi < rn))
             if bad > 0:
                 print(f"{method} seed={seed}: miscovers R_N={rn:.4f} at {bad} steps")
                 all_ok = False
-            # (3) schema shape
+            # Schema shape.
             assert r.celeus_labels.shape == (meta.T_max,)
-            # (5) git_commit + hostname populated
+            # git_commit and hostname are populated.
             if r.git_commit in ("", "unknown"):
                 print(f"{method} seed={seed}: git_commit missing")
                 all_ok = False
             if r.hostname == "":
                 print(f"{method} seed={seed}: hostname missing")
                 all_ok = False
-            # (7) timing collected
+            # Timing was collected.
             if r.elapsed_seconds <= 0:
                 print(f"{method} seed={seed}: elapsed_seconds not recorded")
                 all_ok = False
             elapsed_samples.append(r.elapsed_seconds)
 
-    # Item 4 (spec §9 Stage 1): pool identity must be consistent within each
-    # surrogate-type group. pool_sha256 incorporates surrogate_scores, so
-    # methods with different surrogate_type_* legitimately hash differently
-    # (v2.1 plan deferred item c). Group by surrogate_type_<loss> and check
-    # within-group consistency; divergence within a group signals a
-    # non-deterministic pool load.
+    # Pool identity must be consistent within each surrogate-type group.
+    # pool_sha256 covers the surrogate scores, so methods with a different
+    # surrogate_type legitimately hash differently. Group by
+    # surrogate_type_<loss> and check consistency inside a group; a
+    # divergence there signals a non-deterministic pool load.
     loss_key = f"surrogate_type_{s['loss']}"
     groups: dict[str, dict[str, str]] = {}
     for method in s["methods"]:
@@ -123,17 +121,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Pool SHA inconsistency within surrogate_type={st}: {method_shas}")
             all_ok = False
 
-    # Item 7 (spec §9 Stage 1): extrapolate whole-campaign wall-clock.
+    # Extrapolate the wall-clock of the whole campaign.
     if elapsed_samples:
         import statistics
         avg = statistics.mean(elapsed_samples)
-        campaign_trajectories = 15000 + 450 + 1800  # spec §3 grid totals
+        campaign_trajectories = 15000 + 450 + 1800  # Totals of the run grid.
         total_h = avg * campaign_trajectories / 3600.0
         print(f"Per-trajectory avg elapsed: {avg:.1f} s; campaign estimate ~{total_h:,.0f} CPU-h")
 
     if not all_ok:
         return 2
-    print("Stage 1 smoke checklist PASSED")
+    print("Smoke checklist PASSED")
     return 0
 
 

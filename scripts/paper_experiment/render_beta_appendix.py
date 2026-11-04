@@ -3,9 +3,9 @@
 Mirrors the structure of render_hparam_appendix.py: produces a per-cell
 table, a pooled-per-(dataset×surr-quality) table, and a 2×3 line-plot
 figure (loss rows × dataset columns) with weak vs strong surrogate
-overlays. Reads ``results/paper_experiment/summary.csv`` cross-snapshot
-because the β-sweep cell set is independent of v0504's paper_pairs
-(scope-agnostic; see beta_sweep["pairs_representative"]).
+overlays. Reads ``results/paper_experiment/summary.csv`` across snapshots,
+because the β-sweep cell set does not depend on the paper_pairs selection
+(see beta_sweep["pairs_representative"]).
 
 Outputs under ``<out_root>/beta_appendix/``:
 
@@ -50,9 +50,11 @@ _LOSS_DISPLAY = {"accuracy": "Accuracy", "cross_entropy": "Cross-entropy"}
 
 
 def _quality_for_pair(cfg, surrogate: str, target: str) -> str | None:
-    """Return 'weak' or 'strong' based on cfg.beta_sweep.pairs_representative
-    annotation (the YAML keeps a comment but no field; we infer by re-reading
-    the original cfg.pairs_weak / pairs_strong sets)."""
+    """Return 'weak' or 'strong' for one pair.
+
+    ``cfg.beta_sweep.pairs_representative`` carries no quality field, so the
+    quality comes from the original cfg.pairs_weak / cfg.pairs_strong sets.
+    """
     weak_set = {(p["surrogate"], p["target"]) for p in cfg.pairs_weak}
     strong_set = {(p["surrogate"], p["target"]) for p in cfg.pairs_strong}
     if (surrogate, target) in weak_set:

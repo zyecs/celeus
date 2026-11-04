@@ -1,4 +1,4 @@
-"""Render App.~``app:per-cell-mechanism`` table.
+"""Render the per-cell mechanism table for the appendix.
 
 Produces one artifact under ``<out_root>/per_cell_mechanism/``:
 
@@ -51,9 +51,9 @@ MAIN_PAIRS = (
     ("llama3_8b", "llama3_70b"),
 )
 
-# cell filename pattern: cell__M1__sst2__llama2_7b__llama3_70b__accuracy.npz
-# Surrogate/target name characters include alnum + underscore + literal "x"
-# (Mixtral_8x7b). We split on ``__`` to recover the four ID components.
+# Cell filename pattern: cell__M1__sst2__llama2_7b__llama3_70b__accuracy.npz
+# Surrogate and target names contain alphanumerics, underscores and the
+# literal "x" (Mixtral_8x7b), so the split on ``__`` recovers the components.
 _CELL_RE = re.compile(
     r"cell__(?P<method>[A-Za-z0-9]+)__(?P<dataset>[A-Za-z0-9]+)__"
     r"(?P<surrogate>[A-Za-z0-9_]+?)__(?P<target>[A-Za-z0-9_]+?)__"
@@ -64,9 +64,9 @@ _CELL_RE = re.compile(
 def _parse_cell(cell_path: str) -> dict[str, str]:
     """Parse the canonical ``cell__<method>__...__<loss>.npz`` filename."""
     base = Path(cell_path).name
-    # The filename has exactly 6 ``__``-separated tokens after stripping
-    # ``cell__`` prefix and ``.npz`` suffix; split is safer than regex for
-    # the dataset/surrogate/target components which contain underscores.
+    # The filename has exactly 6 ``__``-separated tokens after the ``cell__``
+    # prefix and the ``.npz`` suffix are stripped. A split is safer than a
+    # regex, because dataset, surrogate and target contain underscores.
     stem = base.removesuffix(".npz")
     parts = stem.split("__")
     # cell, method, dataset, surrogate, target, loss

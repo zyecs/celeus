@@ -1,12 +1,8 @@
 """
-Self-entropy IS acquisition policy (Eq. 14).
+Self-entropy importance-sampling acquisition policy.
 
 Surrogate-guided within-stratum acquisition that oversamples items
 with high binary entropy H_bin(s_hat_i), floored at beta_min/N_k.
-
-Source: Spec section 2.4 Eq. (14); Berrada et al. SelfEntropyAcquisition.
-CLAUDE.md G1: every formula cites source.
-CLAUDE.md Rule 5: rng passed explicitly, never global state.
 """
 
 from __future__ import annotations
@@ -35,9 +31,6 @@ def _binary_entropy(p: np.ndarray) -> np.ndarray:
     -------
     np.ndarray
         H_bin(p) in [0, ln(2)].
-
-    Source: Spec section 2.4 Eq. (14).
-    [DERIVED -- verify]: standard binary entropy formula.
     """
     safe_p = np.clip(p, 1e-15, 1.0 - 1e-15)
     return -safe_p * np.log(safe_p) - (1.0 - safe_p) * np.log(1.0 - safe_p)
@@ -53,11 +46,11 @@ class SelfEntropyAcquisition(AcquisitionPolicy):
     q_k(i) = alpha + (1 - N_rem * alpha) * score_i / sum(scores)
     where alpha = beta_min / N_k, score_i = H_bin(s_hat_i) + 1e-8.
 
-    Floor guarantee: q_k(i) >= beta_min / N_k for all i.
-    [Spec section 4.5; Paper Theorem 4: minimum-probability condition]
+    Floor guarantee: q_k(i) >= beta_min / N_k for all i, which is the
+    minimum-probability condition of Assumption 2.
 
-    Source: Spec section 2.4 Eq. (14); Berrada et al. SelfEntropyAcquisition.
-    [Berrada et al. SelfEntropyAcquisition; adapted for scalar surrogates]
+    Follows the self-entropy acquisition of Berrada et al., adapted here to
+    scalar surrogate scores.
     """
 
     def __init__(self, beta_min: float = 0.05):
@@ -68,14 +61,10 @@ class SelfEntropyAcquisition(AcquisitionPolicy):
         stratum: StratumState,
     ) -> np.ndarray:
         """
-        Compute initial (step-0) proposal distribution over remaining items.
+        Compute the step-0 proposal distribution over remaining items.
 
-        Helper extracted from select() to expose the first-draw probabilities.
-        Returns shape (|remaining|,) array of probabilities summing to 1.
-
-        When remaining is empty, returns np.empty(0, dtype=np.float64).
-
-        Source: Spec section 2.4 Eq. (14); Blueprint lines 647-663.
+        Returns a shape (|remaining|,) array of probabilities summing to 1,
+        or np.empty(0, dtype=np.float64) when nothing remains.
         """
         remaining = stratum.remaining_indices()
         N_rem = len(remaining)
@@ -85,14 +74,12 @@ class SelfEntropyAcquisition(AcquisitionPolicy):
 
         alpha = self.beta_min / stratum.N_k
 
-        # Compute initial probabilities via mixture distribution
-        # [Spec section 2.4 Eq. (14)]
+        # Mixture of a uniform floor and the score-proportional part.
         if N_rem * alpha >= 1.0:
             # Defensive guard: uniform fallback
             pool_probs = np.full(N_rem, 1.0 / N_rem)
         else:
-            # Compute raw scores: H_bin(s_hat_i) + epsilon
-            # [Spec section 2.4 Eq. (14)]
+            # Raw scores: H_bin(s_hat_i) + epsilon to keep the sum positive.
             scores = _binary_entropy(stratum.surrogate_scores[remaining])
             scores = scores + 1e-8
             score_sum = scores.sum()
@@ -108,22 +95,17 @@ class SelfEntropyAcquisition(AcquisitionPolicy):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Select n_k unlabeled items via self-entropy acquisition.
-
-        Source: Spec section 2.4 Eq. (14); Blueprint lines 647-663 pattern.
         """
-        # Step 1: Get remaining unlabeled items
+        # Remaining unlabeled items.
         remaining = stratum.remaining_indices()  # 0-indexed local indices
         n_select = min(n_k, len(remaining))
 
-        # Step 2: Handle empty case
         if n_select == 0:
             return np.array([], dtype=int), np.array([], dtype=np.float64)
 
-        # Step 3: Compute initial probabilities
         pool_probs = self._compute_initial_probs(stratum)
 
-        # Step 4: Sequential WOR loop
-        # [Same procedure as ResidualVarianceAcquisition; Blueprint lines 647-663]
+        # Sequential without-replacement loop; renormalize after each removal.
         pool = remaining.copy()
         chosen_local = np.empty(n_select, dtype=int)
         q_values = np.empty(n_select, dtype=np.float64)
@@ -147,28 +129,26 @@ class SelfEntropyAcquisition(AcquisitionPolicy):
         """
         Return the current proposal distribution over unlabeled items.
 
-        Unlike select(), this does NOT draw. It exposes the probability mass
-        function q_t(j | F_{t-1}, D_N) that select() would use on its first draw.
-        Needed by rq4-rq6 replay analysis to compute conditional variances over
-        the pool at step-0 (before within-batch sequential renormalization).
+        Unlike select(), this does not draw. It exposes the probability mass
+        function that select() would use on its first draw. The replay
+        diagnostics need it to compute conditional variances over the pool at
+        step 0, before the within-batch sequential renormalization.
 
-        The G4 coupling (n_select == 1) ensures this step-0 distribution is
-        all that's needed — no information about subsequent draws within a batch
-        is required. [rq4-rq6 spec §4.3; design §5.6]
+        Replay runs with n_select == 1, so the step-0 distribution is all that
+        is required.
 
         Parameters
         ----------
         stratum : StratumState
             Current stratum state.
         n_k : int
-            Requested number of draws; unused (honoured for signature parity).
+            Requested number of draws; unused (kept for signature parity).
 
         Returns
         -------
         pool_probs : np.ndarray
             Shape (|remaining|,) float64 probability mass function.
-            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when remaining is empty.
-
-        Source: rq4-rq6 design §5.6 + §4.3.
+            All entries ≥ 0; entries sum to 1. Returns np.empty(0) when
+            remaining is empty.
         """
         return self._compute_initial_probs(stratum)

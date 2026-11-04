@@ -1,5 +1,4 @@
-# src/celeus/paper_experiment/cell_runner.py
-"""Run every seed for one cell and write one .npz (paper_experiment spec §4)."""
+"""Run every seed of one cell and write a single bundled .npz."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -271,8 +270,8 @@ def run_subcell(
         "uniform_acquisition": uniform_acquisition,
         "monitor_to_T_max": monitor_to_T_max, "cereval_m_init": cereval_m_init,
         "chunk": chunk, "seeds": seeds,
-        # rq4-rq6 design §5.6.1: persist single-draw invariants + NumPy version
-        # so replay can hard-gate on future cells. Legacy cells lack these keys.
+        # Record the single-draw invariants and the NumPy version, so that a
+        # later replay can check them. Older cells lack these keys.
         "K": _default_cfg.K,
         "B_round": _default_cfg.B_round,
         "numpy_version": np.__version__,

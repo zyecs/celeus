@@ -1,19 +1,12 @@
 """
-CELEUS runner — Stage 3 implementation.
+CELEUS runner.
 
-Implements Algorithm 1 (Spec §4.7) control flow with:
-  - Pluggable AllocationStrategy (defaults to trivial K=1 inline for backward compat)
-  - Pluggable AcquisitionPolicy (defaults to trivial uniform WOR inline for backward compat)
-  - Early stopping when pop_w <= epsilon [Spec §4.7 Algorithm 1 line 25]
-  - All randomness via rng (np.random.Generator) — no global random state
-
-OQ-3 resolution [plan-final.md §4 OQ-3]: allocator=None and acquirer=None
-fall back to trivial K=1 inline behaviour for backward compatibility with
-Stage 0 tests. Stage 1 tests pass real allocator/acquirer.
-
-Source: Spec §4.7 Algorithm 1 (canonical pseudocode).
-CLAUDE.md Rule 4: seed always via np.random.default_rng(seed).
-CLAUDE.md Rule 5: no np.random.seed() — explicit Generator only.
+Implements the Algorithm 1 control flow:
+  - Pluggable AllocationStrategy; None falls back to a trivial K=1 allocation
+  - Pluggable AcquisitionPolicy; None falls back to an inline uniform draw
+    without replacement
+  - Early stopping once the population-corrected width is at most epsilon
+  - All randomness goes through the injected np.random.Generator
 """
 
 from __future__ import annotations
@@ -41,7 +34,8 @@ def compute_adaptive_bounds(
     """
     Compute tightest predictable bounds (a_t, b_t) for R̂_t.
 
-    Source: Paper v0414 §3.2, Eqs. (4a)-(4b).
+    The bounds use pre-round information only, so they are predictable as
+    Remark 4 and Assumption 3 require.
     """
     plug_in = (sum_past_losses + remaining_surrogates.sum()) / N
     correction_lo = (L - remaining_surrogates) / (N * remaining_q_values)
@@ -53,14 +47,12 @@ def compute_adaptive_bounds(
 
 class CeleusRunner:
     """
-    Orchestrates the CELEUS evaluation loop (Algorithm 1, Spec §4.7).
-
-    Stage 3: pluggable AllocationStrategy/AcquisitionPolicy + early stopping.
+    Orchestrates the CELEUS evaluation loop (Algorithm 1).
 
     Parameters
     ----------
     config : CeleusConfig
-        All hyperparameters. [Spec §4.5, CLAUDE.md Rule 3]
+        All hyperparameters.
     pool : EvaluationPool
         Full evaluation pool.
     strata : list[StratumState]
@@ -68,19 +60,18 @@ class CeleusRunner:
     estimator : AIPWEstimator
         AIPW estimator.
     cs : EValueCS
-        E-value confidence sequence (stub in Stage 0/1).
+        E-value confidence sequence.
     recorder : TrajectoryRecorder
         Trajectory logger.
     rng : np.random.Generator
-        Seeded random generator. [CLAUDE.md Rule 4]
+        Seeded random generator.
     allocator : AllocationStrategy or None
-        Budget allocation strategy. If None, falls back to trivial K=1 inline
-        allocation (all B_round to stratum 0). [OQ-3 — plan-final.md §4]
+        Budget allocation strategy. If None, falls back to a trivial K=1
+        allocation that gives all of B_round to stratum 0.
     acquirer : AcquisitionPolicy or None
         Acquisition policy. Defaults to SurrogateEntropyAcquisition(beta_min=0.05),
         which falls back to SelfEntropy when distribution arrays are absent.
-        If None, falls back to trivial inline uniform WOR (Stage 0 behaviour).
-        [OQ-3 — plan-final.md §4; Spec §2.4 Eq. (15)]
+        If None, falls back to an inline uniform draw without replacement.
     """
 
     def __init__(
@@ -103,21 +94,20 @@ class CeleusRunner:
         self.recorder = recorder
         self.rng = rng
         self.allocator = allocator
-        # Default acquisition: SurrogateEntropyAcquisition (Eq. 15), which
-        # falls back to SelfEntropy when distribution arrays are absent.
-        # [Spec §2.4 Eq. (15)]
+        # Default acquisition: SurrogateEntropyAcquisition, which falls back
+        # to SelfEntropy when distribution arrays are absent.
         if acquirer == "default":
             self.acquirer = SurrogateEntropyAcquisition(beta_min=config.beta_min)
         else:
             self.acquirer = acquirer
 
-        # Paper v0320 line 189: "queries one unlabeled sample from each stratum k"
+        # The algorithm queries one unlabeled sample from each stratum.
         # Enforce B_round = K (one item per stratum per round).
         K = len(strata)
         if config.B_round != K and config.B_round != 1:
             import warnings
             warnings.warn(
-                f"v0320 requires B_round = K = {K} (one item per stratum per round). "
+                f"CELEUS requires B_round = K = {K} (one item per stratum per round). "
                 f"Overriding B_round={config.B_round} → {K}.",
                 stacklevel=2,
             )
@@ -127,7 +117,7 @@ class CeleusRunner:
         """
         Run the CELEUS evaluation loop until `pop_w <= epsilon` or `total_labels >= T_max`.
 
-        Algorithm 1 (Spec §4.7) control flow:
+        Algorithm 1 control flow:
           For each round t:
             1. ALLOCATE: assign B_round labels to strata via allocator or trivial fallback
             2. ACQUIRE: call acquirer.select() or inline uniform WOR
@@ -142,18 +132,12 @@ class CeleusRunner:
             Takes global pool indices (int array, shape (m,)), returns loss values
             (float array, shape (m,)).
             In tests: closure over pool.ground_truth_losses.
-
-        Source: Spec §4.7 Algorithm 1.
-        CLAUDE.md Rule 4: all randomness via self.rng — no global state.
         """
         total_labels = 0
         t = 0  # round counter
 
         while total_labels < self.config.T_max:
-            # ------------------------------------------------------------------
-            # Step 1: ALLOCATE labels to strata
-            # [Spec §4.7 Algorithm 1 — allocation step]
-            # ------------------------------------------------------------------
+            # Step 1: ALLOCATE labels to strata.
             K = len(self.strata)
             budgets = np.zeros(K, dtype=int)
 
@@ -164,18 +148,14 @@ class CeleusRunner:
                 break
 
             if self.allocator is not None:
-                # Use pluggable allocation strategy [Stage 1+]
-                # [plan-final.md §3.6; OQ-3 Alternative a]
+                # Use the pluggable allocation strategy.
                 budgets = self.allocator.allocate(self.strata, b_this_round)
             else:
-                # Trivial K=1 fallback: all budget to stratum 0
-                # [OQ-3 — backward compat with Stage 0 tests; plan-final.md §4 OQ-3]
+                # Trivial K=1 fallback: all budget to stratum 0.
                 budgets[0] = b_this_round
 
-            # ------------------------------------------------------------------
-            # Step 2 & 3: ACQUIRE and LABEL per stratum
-            # ------------------------------------------------------------------
-            # --- Compute adaptive bounds BEFORE acquisition [v0414 §3.2] ---
+            # Step 2 and 3: ACQUIRE and LABEL per stratum.
+            # Compute the adaptive bounds before acquisition.
             # Must be F_{t-1}-measurable: uses pre-round state only.
             if self.config.adaptive_bounds:
                 plugin = self.estimator.get_plugin_state(self.strata)
@@ -213,9 +193,8 @@ class CeleusRunner:
                 b_k = min(b_k, len(remaining_local))
 
                 if self.acquirer is not None:
-                    # Use pluggable acquisition policy [Stage 1+]
-                    # Returns (local_indices, q_values) — OQ-1 Alternative A
-                    # [plan-final.md §3.6; OQ-1 resolution]
+                    # Pluggable acquisition policy; it returns both the chosen
+                    # local indices and their sampling probabilities.
                     selected_local, q_values = self.acquirer.select(
                         stratum,
                         b_k,
@@ -224,15 +203,14 @@ class CeleusRunner:
                     selected_local = np.asarray(selected_local, dtype=int)
                     q_values = np.asarray(q_values, dtype=np.float64)
                 else:
-                    # Trivial inline uniform WOR fallback [OQ-3; Stage 0 backward compat]
-                    # [DERIVED — verify]: approximate q_k(m) = 1/|remaining| (Stage 0 style)
+                    # Inline uniform without-replacement fallback with
+                    # q_k(m) = 1/|remaining|.
                     selected_local = self.rng.choice(
                         remaining_local,
                         size=b_k,
                         replace=False,
                     )
                     n_remaining = len(remaining_local)
-                    # [DERIVED — verify]: uniform IS probabilities for fallback path
                     q_values = np.full(
                         b_k,
                         fill_value=1.0 / n_remaining,
@@ -246,7 +224,7 @@ class CeleusRunner:
                 new_losses = oracle_fn(global_indices)
                 new_losses = np.asarray(new_losses, dtype=np.float64)
 
-                # UPDATE: update stratum state via estimator [Spec §2.1 Eqs. (1)-(2)]
+                # UPDATE: update stratum state via the estimator.
                 self.estimator.update_stratum(
                     stratum=stratum,
                     new_local_indices=selected_local,
@@ -255,13 +233,11 @@ class CeleusRunner:
                 )
                 labels_this_round += len(selected_local)
 
-            # ------------------------------------------------------------------
-            # Step 4: AGGREGATE, UPDATE CS, POPULATION CORRECTION
-            # ------------------------------------------------------------------
-            # Aggregate per-stratum estimates [Spec §2.1 Eq. (3)]
+            # Step 4: AGGREGATE, UPDATE CS, POPULATION CORRECTION.
+            # Aggregate the per-stratum estimates.
             R_hat_t = self.estimator.aggregate(self.strata)
 
-            # Update confidence sequence (stub returns (0.0, 1.0, 1.0) in Stage 0/1)
+            # Update the confidence sequence.
             if self.config.adaptive_bounds:
                 if a_t is not None and b_t is not None:
                     lower, upper, _ = self.cs.update(R_hat_t, a_t=a_t, b_t=b_t)
@@ -270,7 +246,7 @@ class CeleusRunner:
             else:
                 lower, upper, _ = self.cs.update(R_hat_t)
 
-            # Pool feasibility intersection [Draft v0403 §3.2 page 7]
+            # Pool feasibility intersection.
             sum_queried_losses = sum(sum(s.losses) for s in self.strata)
             lower, upper, _ = pool_feasibility_intersection(
                 lower=lower,
@@ -282,7 +258,7 @@ class CeleusRunner:
                 loss_upper=self.config.loss_bound,
             )
 
-            # Population correction [Draft page 7: Δ_N = L·√(log(2/α₂)/(2N))]
+            # Population correction: Δ_N = L·√(log(2/α₂)/(2N)).
             pop_lower, pop_upper, pop_w = self.cs.population_correction(
                 lower=lower,
                 upper=upper,
@@ -300,10 +276,7 @@ class CeleusRunner:
             if labels_this_round == 0:
                 break
 
-            # ------------------------------------------------------------------
-            # Step 5: RECORD
-            # [Spec §4.7 Algorithm 1 line 22]
-            # ------------------------------------------------------------------
+            # Step 5: RECORD.
             ess_per_stratum = [TrajectoryRecorder.compute_ess(s) for s in self.strata]
 
             self.recorder.record(
@@ -319,12 +292,12 @@ class CeleusRunner:
                 ess_per_stratum=ess_per_stratum,
             )
 
-            # Early stopping after RECORD [Spec §4.7 Algorithm 1 line 25]
-            # Fixed-horizon mode MUST run to T_max — CI valid only at t=T.
-            # paper_experiment spec §4: monitor_to_T_max=True also suppresses
-            # the break so the full trajectory is available for coverage-
-            # over-time analysis; the crossing time is recovered from the
-            # recorded pop_w series by the cell-schema writer.
+            # Early stopping, applied after RECORD.
+            # Fixed-horizon mode must run to T_max: the CI is valid only at t=T.
+            # monitor_to_T_max also suppresses the break, so the full
+            # trajectory stays available for coverage-over-time analysis. The
+            # crossing time is recovered from the recorded pop_w series by the
+            # cell-schema writer.
             if (
                 not self.config.fixed_horizon
                 and not self.config.monitor_to_T_max

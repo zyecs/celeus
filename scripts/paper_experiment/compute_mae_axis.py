@@ -1,4 +1,4 @@
-"""Compute pool-level MAE axis for §6.5 item #1 and emit the S3 decision gate."""
+"""Compute the pool-level MAE axis and emit the decision gate."""
 from __future__ import annotations
 
 import argparse
@@ -32,8 +32,8 @@ DEPLOYED = {
     "cross_entropy": "remark1_strategy2",
 }
 
-# Trajectory file path scheme used by RQ6 per_cell_curves.csv (cell column).
-# {out_root} is parameterized so --out-root overrides work correctly (Opus MAJOR #4).
+# Trajectory file path scheme used by the cell column of the RQ6
+# per_cell_curves.csv. {out_root} stays a parameter so --out-root works.
 _V_T_CELL_PATH_FMT = (
     "{out_root}/trajectories/main/"
     "cell__M1__{dataset}__{surrogate}__{target}__accuracy.npz"

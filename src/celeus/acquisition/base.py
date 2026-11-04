@@ -3,15 +3,13 @@ AcquisitionPolicy abstract base class for CELEUS.
 
 Defines the interface for acquisition policies that select which items to label.
 
-OQ-1 resolution [plan-final.md §4 OQ-1]: select() returns (local_indices, q_values).
-  The acquisition policy knows sampling probabilities at selection time.
-  Returning q_values from select() keeps the IS weight logic clean (Alternative A).
+``select()`` returns both the chosen indices and their sampling probabilities.
+The policy already knows those probabilities at selection time, so returning
+them keeps the importance-weight logic in one place.
 
-get_proposal() exposes the full probability mass function over unlabeled items
-  without drawing, required by rq4-rq6 replay analysis.
-
-Source: plan-final.md §3.4; Spec §4.7 Algorithm 1 (acquisition step).
-CLAUDE.md G1: every formula cites source; Rule 5: rng passed explicitly.
+``get_proposal()`` exposes the full probability mass function over unlabeled
+items without drawing. The replay diagnostics need it to recompute conditional
+variances.
 """
 
 from __future__ import annotations
@@ -36,9 +34,6 @@ class AcquisitionPolicy(ABC):
       - No repeats within a single call
       - len(q_values) == len(local_indices)
       - All q_values > 0
-
-    Source: plan-final.md §3.4; Spec §4.7 Algorithm 1.
-    OQ-1 [plan-final.md §4]: select() returns (local_indices, q_values) — Alternative A.
     """
 
     @abstractmethod
@@ -55,11 +50,11 @@ class AcquisitionPolicy(ABC):
         ----------
         stratum : StratumState
             Current stratum state. Use stratum.remaining_indices() to get
-            available unlabeled items. [Blueprint §1.1]
+            available unlabeled items.
         n_k : int
             Number of items to select. May be capped by available capacity.
         rng : np.random.Generator
-            Seeded random generator. [CLAUDE.md Rule 5 — no global random state]
+            Seeded random generator. No global random state is used.
 
         Returns
         -------
@@ -68,10 +63,8 @@ class AcquisitionPolicy(ABC):
             n_select = min(n_k, len(remaining)). No duplicates.
         q_values : np.ndarray
             Shape (n_select,) sampling probabilities q_k(m) for each selected item.
-            For uniform WOR: q_k(m) = 1/(|remaining| - batch_position).
-            [Spec §2.1 Eq. (2); plan-final.md OQ-2 Alternative B]
-
-        Source: plan-final.md §3.4; OQ-1 resolution (Alternative A).
+            For uniform sampling without replacement:
+            q_k(m) = 1/(|remaining| - batch_position).
         """
         ...
 
@@ -93,7 +86,7 @@ class AcquisitionPolicy(ABC):
         ----------
         stratum : StratumState
             Current stratum state, providing ``remaining_indices()``,
-            ``surrogate_scores``, and (for Remark 1/2 policies) ``ell_proxy``.
+            ``surrogate_scores``, and, for proxy-score policies, ``ell_proxy``.
         n_k : int
             Requested number of draws; used only to honour the early-return
             convention of ``select`` (an empty array when the pool is empty).
@@ -107,7 +100,5 @@ class AcquisitionPolicy(ABC):
             to global identities must use ``stratum.pool_indices[remaining[i]]``.
             All entries are ≥ 0; entries sum to 1.0. An empty array is returned
             when the pool is empty.
-
-        Source: rq4-rq6 design §5.6.
         """
         ...

@@ -302,9 +302,9 @@ def status_to_dict(status: SelectedCellStatus) -> dict[str, object]:
 def _arrays_for_method(result, method: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if method == "M4":
         return result.base_labels, result.base_lo, result.base_hi
-    # M5 (Cer-Eval) writes celeus_* and base_* to identical arrays in
-    # run_cereval_for_seed (src/celeus/paper_experiment/runners.py:207-209), so
-    # reading celeus_* keeps M5 in the same branch as M1/ORACLE_ACC.
+    # Cer-Eval (M5) writes celeus_* and base_* as identical arrays in
+    # run_cereval_for_seed, so reading celeus_* keeps M5 in the same branch
+    # as M1 and ORACLE_ACC.
     if method in {"M1", "M3", "ORACLE_ACC", "M5"}:
         return result.celeus_labels, result.celeus_lo, result.celeus_hi
     raise ValueError(f"unsupported method: {method!r}")
@@ -444,7 +444,7 @@ def _m5_cell_data_present(
     (b) at least one chunked subcell file exists under ``_subcells/main/``
         matching ``subcell__M5__{dataset}__{surrogate}__{target}__accuracy__chunk*.npz``.
 
-    The cfg-planned arm is intentionally excluded — see spec §5.2.
+    The arm planned in the config alone does not count as evidence.
     """
     subcell_dir = out_root / "_subcells" / "main"
     for pair in pairs:
@@ -472,15 +472,16 @@ def derive_cereval_scope(
 ) -> tuple[tuple[str, ...], tuple[SelectedPair, ...]]:
     """Resolve the (datasets, pairs) plot scope for the cereval sub-figure.
 
-    Strictly data-driven on BOTH axes (per spec §5.2):
+    Strictly data-driven on BOTH axes:
     - Pairs: intersection of ``selection`` (default ``selected_pairs()``) with
       ``cfg_cereval.cereval_pairs``, then further filtered to pairs that have
       at least one (dataset, pair) tuple with on-disk M5 evidence.
     - Datasets: ``cfg_cereval.datasets ∩ DATASET_ORDER`` filtered to those that
       have at least one in-scope pair with on-disk M5 evidence.
 
-    Today: ({"sst2"}, 2 pairs). Auto-extends if cereval data appears for
-    mmlu/agnews or for additional pairs.
+    With the current data this resolves to ({"sst2"}, 2 pairs). It extends
+    automatically if Cer-Eval data appears for mmlu or agnews, or for more
+    pairs.
     """
     candidate_pairs = cereval_pairs(cfg_cereval, selection=selection)
     candidate_datasets = tuple(
@@ -603,9 +604,9 @@ def collect_selected_cereval_repair_targets(
     targets: list[MainRepairTarget] = []
     for dataset in datasets:
         for pair in pairs:
-            # Per-pair data-presence guard (spec §5.2): only emit repair targets
-            # for (dataset, pair) tuples that actually have subcells or a
-            # merged cell on disk. Skips silent fallthrough on extras.
+            # Per-pair data-presence guard: emit a repair target only for a
+            # (dataset, pair) tuple that has subcells or a merged cell on
+            # disk. This avoids silent fallthrough on extra tuples.
             if not _m5_cell_data_present(out_root_cereval, dataset, (pair,)):
                 continue
             merged_path = main_cell_path(

@@ -43,13 +43,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     base = args.out_root if args.out_root else (_REPO / "results" / "paper_experiment")
     frames = []
-    # v2: load_summary now dispatches parsers per subdir so ce_sweep and
-    # beta_sweep trajectories are no longer silently dropped.
+    # load_summary dispatches a parser per subdir, so every trajectory kind
+    # below lands in the same row model.
     subdirs = [
         "trajectories/main",
         "trajectories/ce_sweep",
         "trajectories/beta_sweep",
-        "trajectories/acquisition_sweep",  # v0502: include acq_sweep cells
+        "trajectories/acquisition_sweep",
     ]
     if args.include_oracle_accuracy:
         subdirs.append("trajectories/oracle_accuracy")
